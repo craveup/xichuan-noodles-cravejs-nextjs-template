@@ -13,7 +13,7 @@ export function XichuanAbout() {
               Our Story
             </h2>
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-              From the ancient capital of Xi'an to your table, we bring the
+              From the ancient capital of Xi&apos;an to your table, we bring the
               authentic flavors of the Silk Road through traditional hand-pulled
               noodles and time-honored recipes.
             </p>
@@ -27,20 +27,20 @@ export function XichuanAbout() {
               </h3>
               <p className="text-muted-foreground mb-4">
                 Our master noodle makers learned their craft in the bustling
-                markets of Xi'an, where the rhythmic "biang biang" sound of
-                noodles hitting the counter has echoed for over a thousand
-                years.
+                markets of Xi&apos;an, where the rhythmic &quot;biang
+                biang&quot; sound of noodles hitting the counter has echoed for
+                over a thousand years.
               </p>
               <p className="text-muted-foreground mb-4">
                 Each bowl of our signature biang biang noodles tells a story of
                 tradition, crafted with flour, water, and generations of
                 technique. The noodles are pulled to order, ensuring the perfect
-                texture that's both chewy and tender.
+                texture that&apos;s both chewy and tender.
               </p>
               <p className="text-muted-foreground">
                 Our secret 30-spice chili oil blend combines the heat of Sichuan
-                peppers with the depth of traditional Xi'an seasonings, creating
-                a flavor profile that's bold yet balanced.
+                peppers with the depth of traditional Xi&apos;an seasonings, creating
+                a flavor profile that&apos;s bold yet balanced.
               </p>
             </div>
             <div className="relative">
@@ -67,7 +67,7 @@ export function XichuanAbout() {
                 </div>
                 <h4 className="font-semibold mb-2">Tang Dynasty</h4>
                 <p className="text-sm text-muted-foreground">
-                  Xi'an becomes the starting point of the Silk Road,
+                  Xi&apos;an becomes the starting point of the Silk Road,
                   establishing the culinary traditions that inspire our recipes
                   today.
                 </p>
@@ -79,10 +79,12 @@ export function XichuanAbout() {
                 >
                   1995
                 </div>
-                <h4 className="font-semibold mb-2">Master Chen's Training</h4>
+                <h4 className="font-semibold mb-2">
+                  Master Chen&apos;s Training
+                </h4>
                 <p className="text-sm text-muted-foreground">
-                  Our head chef begins his apprenticeship in Xi'an's famous
-                  Muslim Quarter, learning the ancient art of hand-pulled
+                  Our head chef begins his apprenticeship in Xi&apos;an&apos;s
+                  famous Muslim Quarter, learning the ancient art of hand-pulled
                   noodles.
                 </p>
               </div>
@@ -95,7 +97,7 @@ export function XichuanAbout() {
                 </div>
                 <h4 className="font-semibold mb-2">Xichuan Opens</h4>
                 <p className="text-sm text-muted-foreground">
-                  We bring authentic Xi'an flavors to New York, sharing our
+                  We bring authentic Xi&apos;an flavors to New York, sharing our
                   passion for traditional Chinese noodle cuisine with a new
                   generation.
                 </p>
@@ -146,8 +148,8 @@ export function XichuanAbout() {
               </div>
               <h4 className="font-semibold mb-2">Authentic Flavors</h4>
               <p className="text-sm text-muted-foreground">
-                Our signature spice blends capture the soul of Xi'an cuisine,
-                bold and complex yet perfectly balanced.
+                Our signature spice blends capture the soul of Xi&apos;an
+                cuisine, bold and complex yet perfectly balanced.
               </p>
             </div>
           </div>

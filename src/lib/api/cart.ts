@@ -1,5 +1,5 @@
 import { fetchData, postData, putData } from './crave-client';
-import { CartResponse, CartItem, LocationData, ProductData, PaymentIntentResponse } from './types';
+import { CartResponse, LocationData, ProductData, PaymentIntentResponse } from './types';
 
 // Get cart data
 export const getCart = async (locationId: string, cartId: string): Promise<CartResponse> => {
@@ -17,7 +17,14 @@ export const getCartRecommendations = async (locationId: string, cartId: string)
 };
 
 // Add item to cart
-export const addItemToCart = async (locationId: string, cartId: string, addItemData: any) => {
+interface AddItemData extends Record<string, unknown> {
+  id: string;
+  quantity: number;
+  specialInstructions?: string;
+  selectedModifiers?: { id: string; items: { id: string }[] }[];
+}
+
+export const addItemToCart = async (locationId: string, cartId: string, addItemData: AddItemData) => {
   return postData(`/api/v1/locations/${locationId}/carts/${cartId}/cart-item`, addItemData);
 };
 
@@ -61,7 +68,7 @@ export const applyPromoCode = async (locationId: string, cartId: string, promoCo
 export const updateCustomerInfo = async (
   locationId: string, 
   cartId: string, 
-  customer: any
+  customer: { customerName?: string; emailAddress?: string; phoneNumber?: string }
 ) => {
   return putData(`/api/v1/locations/${locationId}/cart/${cartId}/validate-and-update`, customer);
 };

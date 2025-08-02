@@ -1,7 +1,7 @@
 // React hooks for CraveUp API integration
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import * as api from './client'
-import type { Product, Cart, CartItem } from './types'
+import type { Product, CartItem } from './types'
 
 // Menu hooks
 export const useMenuItems = (locationId: string, orderDate?: string, orderTime?: string) => {
@@ -80,7 +80,7 @@ export const useCart = (locationId: string, cartId: string) => {
   const createCartMutation = useMutation({
     mutationFn: () => api.createCart(locationId),
     onSuccess: (newCart) => {
-      queryClient.setQueryData(['cart', locationId, newCart._id], newCart)
+      queryClient.setQueryData(['cart', locationId, newCart.id], newCart)
     }
   })
 
@@ -107,7 +107,7 @@ export const useCart = (locationId: string, cartId: string) => {
     }: {
       product: Product
       quantity?: number
-      modifiers?: any[]
+      modifiers?: { id: string; name: string; price: number }[]
       specialInstructions?: string
     }) => api.addItemToCart(locationId, cartId, product, quantity, modifiers, specialInstructions),
     onSuccess: (updatedCart) => {
@@ -138,7 +138,7 @@ export const useCart = (locationId: string, cartId: string) => {
   })
 
   const setDeliveryAddressMutation = useMutation({
-    mutationFn: (address: any) => api.setDeliveryAddress(locationId, cartId, address),
+    mutationFn: (address: { street: string; city: string; state: string; zip: string; apt?: string }) => api.setDeliveryAddress(locationId, cartId, address),
     onSuccess: (updatedCart) => {
       queryClient.setQueryData(['cart', locationId, cartId], updatedCart)
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+// import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -51,7 +51,7 @@ const locations: Location[] = [
       "Takeout",
       "Delivery",
       "Hand-Pulled Noodles",
-      "Authentic Xi'an Cuisine",
+      "Authentic Xi&apos;an Cuisine",
       "Late Night",
     ],
     image: "/images/xichuan-noodles/locations/chinatown-storefront.webp",
@@ -108,7 +108,7 @@ const locations: Location[] = [
 
 export default function XichuanLocationsPage() {
   const { isCartOpen, closeCart } = useCart();
-  const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
+  // const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
 
   const handleOrderFromLocation = (locationId: string) => {
     // In a real app, this would set the selected location and redirect to menu
@@ -132,7 +132,7 @@ export default function XichuanLocationsPage() {
             Our Locations
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Experience authentic Xi'an cuisine at any of our locations. Each
+            Experience authentic Xi&apos;an cuisine at any of our locations. Each
             restaurant features master noodle pullers creating fresh,
             hand-pulled noodles daily.
           </p>
@@ -342,7 +342,7 @@ export default function XichuanLocationsPage() {
                 Want Xichuan Noodles in Your Neighborhood?
               </h3>
               <p className="text-muted-foreground mb-6">
-                We're expanding across NYC! Contact us if you'd like to see a
+                We&apos;re expanding across NYC! Contact us if you&apos;d like to see a
                 Xichuan Noodles location near you or inquire about catering
                 services for your event.
               </p>

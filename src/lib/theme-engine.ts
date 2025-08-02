@@ -102,7 +102,7 @@ export interface RestaurantTheme {
       modal: string
     }
   }
-  components: Record<string, any>
+  components: Record<string, { styles: Record<string, string>; variants?: Record<string, Record<string, string>> }>
   animations: {
     duration: {
       fast: string
@@ -114,7 +114,7 @@ export interface RestaurantTheme {
       in: string
       out: string
     }
-    effects: Record<string, any>
+    effects: Record<string, string>
   }
   accessibility: {
     respectMotionPreference: boolean
@@ -127,13 +127,13 @@ export interface RestaurantTheme {
     specialEffects?: Record<string, string>
     branding?: Record<string, string>
   }
-  responsive?: Record<string, any>
+  responsive?: Record<string, string>
   clientSpecific?: {
     businessType: string
     atmosphere: string
     targetAudience: string
     brandPersonality: string[]
-    seasonalAdjustments?: Record<string, any>
+    seasonalAdjustments?: Record<string, Partial<RestaurantTheme>>
   }
 }
 
@@ -263,7 +263,7 @@ export class ThemeEngine {
   /**
    * Generate Tailwind configuration
    */
-  generateTailwindConfig(): Record<string, any> {
+  generateTailwindConfig(): Record<string, unknown> {
     return {
       colors: {
         brand: {

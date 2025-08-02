@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Sheet,
   SheetContent,
@@ -37,7 +36,7 @@ export function XichuanCart({ isOpen, onClose }: XichuanCartProps) {
             />
             <h3 className="text-lg font-semibold mb-2">Your cart is empty</h3>
             <p className="text-muted-foreground mb-6">
-              Add some delicious Xi'an noodles to get started!
+              Add some delicious Xi&apos;an noodles to get started!
             </p>
             <Button
               onClick={onClose}

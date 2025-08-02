@@ -20,7 +20,7 @@ export function XichuanFooter() {
               </span>
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Authentic Xi'an hand-pulled noodles and traditional Chinese
+              Authentic Xi&apos;an hand-pulled noodles and traditional Chinese
               cuisine made fresh daily with time-honored techniques.
             </p>
             <div className="flex gap-4">

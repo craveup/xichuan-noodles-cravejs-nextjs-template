@@ -249,7 +249,7 @@ export function XichuanMenuItem({ item }: XichuanMenuItemProps) {
                   onValueChange={(value) =>
                     setSelectedOptions({
                       ...selectedOptions,
-                      noodleType: value as any,
+                      noodleType: value as "hand-pulled" | "wide" | "thin",
                     })
                   }
                 >

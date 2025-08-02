@@ -31,12 +31,12 @@ export function XichuanHero() {
               className="block text-4xl md:text-6xl mt-2"
               style={{ color: "hsl(var(--brand-accent))" }}
             >
-              Xi'an Noodles
+              Xi&apos;an Noodles
             </span>
           </h1>
           <p className="text-xl mb-8 text-white/80 dark:text-white/80 leading-relaxed tracking-wide">
             Hand-pulled biang biang noodles, bold flavors from the ancient Silk
-            Road. Experience the authentic taste of Xi'an in every bite.
+            Road. Experience the authentic taste of Xi&apos;an in every bite.
           </p>
         </div>
 

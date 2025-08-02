@@ -5,6 +5,7 @@ import { useThemeClasses } from "@/hooks/use-restaurant-theme";
 import { ClientIcon } from "./client-icon";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 
 interface XichuanHeaderProps {
   onCartClick?: () => void;
@@ -19,7 +20,7 @@ export function XichuanHeader({ onCartClick }: XichuanHeaderProps) {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <a
+          <Link
             href="/"
             className="flex items-center hover:opacity-80 transition-opacity"
             aria-label="Go to Xichuan Noodles home page"
@@ -38,7 +39,7 @@ export function XichuanHeader({ onCartClick }: XichuanHeaderProps) {
             >
               XICHUAN NOODLES
             </span>
-          </a>
+          </Link>
 
           {/* Navigation */}
           <nav className="hidden md:flex items-center space-x-8">

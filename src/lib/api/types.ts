@@ -137,7 +137,7 @@ export interface ProductData {
   imageUrl: string;
   categoryId: string;
   isAvailable: boolean;
-  modifierGroups?: any[];
+  modifierGroups?: { id: string; name: string; items: { id: string; name: string; price: string }[] }[];
 }
 
 // ✅ **Checkout Data**
@@ -171,14 +171,30 @@ export interface Product {
   images?: string[];
   category?: string;
   availability?: string;
-  modifierGroups?: any[];
+  modifierGroups?: { id: string; name: string; items: { id: string; name: string; price: string }[] }[];
 }
 
 // ✅ **Legacy type aliases for backwards compatibility**
 export type Location = LocationData;
 export type Cart = CartResponse;
-export type MenuResponse = any;
-export type TimeInterval = any;
-export type GratuitySettings = any;
+export interface MenuResponse {
+  categories: { id: string; name: string; products: Product[] }[];
+}
+export interface TimeInterval {
+  id: string;
+  startTime: string;
+  endTime: string;
+  isAvailable: boolean;
+}
+export interface GratuitySettings {
+  defaultPercentages: number[];
+  minimumAmount: number;
+  maximumAmount: number;
+}
 export type PaymentIntent = PaymentIntentResponse;
-export type DiscountCode = any;
+export interface DiscountCode {
+  id: string;
+  code: string;
+  discountAmount: number;
+  discountType: 'percentage' | 'fixed';
+}

@@ -47,11 +47,11 @@ export function XichuanMenu() {
     const itemsPerCategory = Math.ceil(apiProducts.length / 5);
 
     return {
-      signature: apiProducts.slice(0, itemsPerCategory).map((product) => ({
-        id: product._id,
+      signature: apiProducts.slice(0, itemsPerCategory).filter(product => product._id || product.id).map((product) => ({
+        id: (product._id || product.id) as string,
         name: product.name,
         description: product.description || "Authentic Xi'an specialty",
-        price: product.price,
+        price: typeof product.price === 'string' ? parseFloat(product.price) : product.price,
         image:
           product.images?.[0] ||
           "/images/xichuan-noodles/menu/biang_classic.webp",
@@ -61,11 +61,12 @@ export function XichuanMenu() {
       })),
       noodles: apiProducts
         .slice(itemsPerCategory, itemsPerCategory * 2)
+        .filter(product => product._id || product.id)
         .map((product) => ({
-          id: product._id,
+          id: (product._id || product.id) as string,
           name: product.name,
           description: product.description || "Hand-pulled noodles",
-          price: product.price,
+          price: typeof product.price === 'string' ? parseFloat(product.price) : product.price,
           image:
             product.images?.[0] ||
             "/images/xichuan-noodles/menu/beef_biang.webp",
@@ -74,11 +75,12 @@ export function XichuanMenu() {
         })),
       dumplings: apiProducts
         .slice(itemsPerCategory * 2, itemsPerCategory * 3)
+        .filter(product => product._id || product.id)
         .map((product) => ({
-          id: product._id,
+          id: (product._id || product.id) as string,
           name: product.name,
           description: product.description || "Traditional dumplings",
-          price: product.price,
+          price: typeof product.price === 'string' ? parseFloat(product.price) : product.price,
           image:
             product.images?.[0] ||
             "/images/xichuan-noodles/menu/cumin_lamb.webp",
@@ -87,22 +89,23 @@ export function XichuanMenu() {
         })),
       appetizers: apiProducts
         .slice(itemsPerCategory * 3, itemsPerCategory * 4)
+        .filter(product => product._id || product.id)
         .map((product) => ({
-          id: product._id,
+          id: (product._id || product.id) as string,
           name: product.name,
           description: product.description || "Traditional appetizer",
-          price: product.price,
+          price: typeof product.price === 'string' ? parseFloat(product.price) : product.price,
           image:
             product.images?.[0] ||
             "/images/xichuan-noodles/menu/biang_classic.webp",
           category: "appetizers",
           spiceLevel: Math.floor(Math.random() * 2) + 1,
         })),
-      beverages: apiProducts.slice(itemsPerCategory * 4).map((product) => ({
-        id: product._id,
+      beverages: apiProducts.slice(itemsPerCategory * 4).filter(product => product._id || product.id).map((product) => ({
+        id: (product._id || product.id) as string,
         name: product.name,
         description: product.description || "Refreshing beverage",
-        price: product.price,
+        price: typeof product.price === 'string' ? parseFloat(product.price) : product.price,
         image:
           product.images?.[0] ||
           "/images/xichuan-noodles/menu/biang_classic.webp",
@@ -121,9 +124,9 @@ export function XichuanMenu() {
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold text-foreground mb-4">Our Menu</h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            From signature hand-pulled biang biang noodles to traditional Xi'an
-            dumplings, each dish is prepared with authentic spices and
-            techniques passed down through generations.
+            From signature hand-pulled biang biang noodles to traditional
+            Xi&apos;an dumplings, each dish is prepared with authentic spices
+            and techniques passed down through generations.
           </p>
           {useApi && (
             <div className="mt-4 text-sm text-green-600 dark:text-green-400">
@@ -232,8 +235,8 @@ export function XichuanMenu() {
                 <div>
                   <h4 className="font-semibold mb-2">Corporate Catering</h4>
                   <p className="text-muted-foreground mb-4">
-                    Bring the authentic taste of Xi'an to your office events
-                    with our catering packages.
+                    Bring the authentic taste of Xi&apos;an to your office
+                    events with our catering packages.
                   </p>
                   <Button variant="outline">Get Catering Quote</Button>
                 </div>

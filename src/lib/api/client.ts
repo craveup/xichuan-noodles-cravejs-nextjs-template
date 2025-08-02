@@ -36,7 +36,7 @@ export const fetchProducts = async (locationId: string): Promise<Product[]> => {
   const products = await handleAPIResponse(response)
   
   // Ensure prices are numbers, not strings
-  return products.map((product: any) => ({
+  return products.map((product: Product) => ({
     ...product,
     price: typeof product.price === 'string' ? parseFloat(product.price) : product.price
   }))
@@ -49,7 +49,7 @@ export const fetchPopularProducts = async (locationId: string): Promise<Product[
   const products = await handleAPIResponse(response)
   
   // Ensure prices are numbers, not strings
-  return products.map((product: any) => ({
+  return products.map((product: Product) => ({
     ...product,
     price: typeof product.price === 'string' ? parseFloat(product.price) : product.price
   }))
@@ -143,7 +143,7 @@ export const updateCartGratuity = async (
 export const setDeliveryAddress = async (
   locationId: string,
   cartId: string,
-  address: any
+  address: { street: string; city: string; state: string; zip: string; apt?: string }
 ): Promise<Cart> => {
   const response = await fetch(endpoints.cartDelivery(locationId, cartId), {
     method: 'PUT',
@@ -215,7 +215,7 @@ export const createPaymentIntent = async (
   cartId: string
 ): Promise<PaymentIntent> => {
   const response = await fetch(endpoints.paymentIntent(locationId, cartId), {
-    headers: apiHeaders
+    headers: apiHeaders()
   })
   return handleAPIResponse(response)
 }
@@ -252,7 +252,7 @@ export const addItemToCart = async (
   cartId: string,
   product: Product,
   quantity: number = 1,
-  modifiers?: any[],
+  modifiers?: { id: string; name: string; price: number }[],
   specialInstructions?: string
 ): Promise<Cart> => {
   const requestBody = {
@@ -291,7 +291,7 @@ export const updateCartItemQuantity = async (
   const cart = await fetchCart(locationId, cartId)
   
   const updatedItems = cart.items.map(item =>
-    item._id === itemId ? { ...item, quantity, itemTotal: item.price * quantity } : item
+    item.id === itemId ? { ...item, quantity, itemTotal: parseFloat(item.price) * quantity } : item
   ).filter(item => item.quantity > 0) // Remove items with 0 quantity
   
   return updateCart(locationId, cartId, updatedItems)

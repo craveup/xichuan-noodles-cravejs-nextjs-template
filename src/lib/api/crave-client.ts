@@ -19,7 +19,7 @@ export const fetcherSWR = async (
 async function handleRequestClientSide(
   endPoint: string,
   method = "GET",
-  data?: Record<any, any>,
+  data?: Record<string, unknown>,
   baseUrl = STORE_FRONT_API_BASE_URL,
 ) {
   const fullEndpoint = `${baseUrl}${endPoint}`;
@@ -56,7 +56,7 @@ export const fetchData = async (
 
 export const postData = async (
   endpoint: string,
-  data: Record<any, any>,
+  data: Record<string, unknown>,
   baseUrl?: string,
 ) => {
   // Local mode fallback
@@ -82,24 +82,35 @@ export const postData = async (
     );
 
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const isAxiosError = error && typeof error === 'object' && 'response' in error;
+    const errorMessage = isAxiosError && 'message' in error ? (error as { message: string }).message : 'Unknown error';
+    const errorCode = isAxiosError && 'code' in error ? (error as { code: string }).code : undefined;
+    
+    interface AxiosErrorLike {
+      response?: { data?: unknown; status?: number; statusText?: string; headers?: unknown };
+      config?: { method?: string; url?: string; headers?: unknown };
+    }
+    
+    const axiosError = isAxiosError ? error as AxiosErrorLike : null;
+    
     console.error('POST request failed:', {
       endpoint,
       fullUrl: `${baseUrl || STORE_FRONT_API_BASE_URL}${endpoint}`,
       data,
-      error: error.response?.data || error.message,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      headers: error.response?.headers,
+      error: axiosError?.response?.data || errorMessage,
+      status: axiosError?.response?.status,
+      statusText: axiosError?.response?.statusText,
+      headers: axiosError?.response?.headers,
       config: {
-        method: error.config?.method,
-        url: error.config?.url,
-        headers: error.config?.headers
+        method: axiosError?.config?.method,
+        url: axiosError?.config?.url,
+        headers: axiosError?.config?.headers
       }
     });
 
     // Fallback to local mode on connection error
-    if (error.code === 'ECONNREFUSED' || error.message.includes('Network Error')) {
+    if (errorCode === 'ECONNREFUSED' || errorMessage.includes('Network Error')) {
       console.log('🟡 API unavailable - falling back to mock data for POST:', endpoint);
       return getMockPostResponse(endpoint, data);
     }
@@ -109,7 +120,7 @@ export const postData = async (
 };
 
 // Mock response generator for local development
-function getMockPostResponse(endpoint: string, data: Record<any, any>) {
+function getMockPostResponse(endpoint: string, data: Record<string, unknown>) {
   // Mock cart creation
   if (endpoint.includes('/carts') && !endpoint.includes('/cart-item')) {
     return {
@@ -124,18 +135,20 @@ function getMockPostResponse(endpoint: string, data: Record<any, any>) {
 
   // Mock add to cart
   if (endpoint.includes('/cart-item')) {
+    const quantity = typeof data.quantity === 'number' ? data.quantity : 1;
+    const price = 5.00;
     return {
       cartId: 'mock-cart-123',
       items: [{
         _id: 'mock-item-' + Date.now(),
         productId: data.id,
-        quantity: data.quantity || 1,
-        price: 5.00,
-        itemTotal: (data.quantity || 1) * 5.00
+        quantity: quantity,
+        price: price,
+        itemTotal: quantity * price
       }],
-      subtotal: (data.quantity || 1) * 5.00,
-      tax: (data.quantity || 1) * 5.00 * 0.08,
-      total: (data.quantity || 1) * 5.00 * 1.08
+      subtotal: quantity * price,
+      tax: quantity * price * 0.08,
+      total: quantity * price * 1.08
     };
   }
 
@@ -158,7 +171,7 @@ function getMockPostResponse(endpoint: string, data: Record<any, any>) {
 
 export const putData = async (
   endpoint: string,
-  data: Record<any, any>,
+  data: Record<string, unknown>,
   baseUrl?: string,
 ) => {
   const response = await handleRequestClientSide(
@@ -172,7 +185,7 @@ export const putData = async (
 
 export const patchData = async (
   endpoint: string,
-  data: Record<any, any>,
+  data: Record<string, unknown>,
   baseUrl?: string,
 ) => {
   const response = await handleRequestClientSide(
@@ -186,7 +199,7 @@ export const patchData = async (
 
 export const deleteData = async (
   endpoint: string,
-  data?: Record<any, any>,
+  data?: Record<string, unknown>,
   baseUrl?: string,
 ) => {
   const response = await handleRequestClientSide(

@@ -7,7 +7,9 @@ interface ClientIconProps {
   name: keyof typeof LucideIcons;
   className?: string;
   size?: number;
-  [key: string]: any;
+  color?: string;
+  strokeWidth?: number;
+  style?: React.CSSProperties;
 }
 
 export function ClientIcon({ name, ...props }: ClientIconProps) {
@@ -30,7 +32,7 @@ export function ClientIcon({ name, ...props }: ClientIconProps) {
     );
   }
 
-  const Icon = LucideIcons[name] as React.ComponentType<any>;
+  const Icon = LucideIcons[name] as React.ComponentType<Omit<ClientIconProps, 'name'>>;
   
   if (!Icon) {
     return null;
