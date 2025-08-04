@@ -44,14 +44,14 @@ export function XichuanHeader({ onCartClick }: XichuanHeaderProps) {
           {/* Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
             <a
-              href="#menu"
+              href="/#menu"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               aria-label="View our menu"
             >
               Menu
             </a>
             <a
-              href="#about"
+              href="/#about"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               aria-label="Learn about our story"
             >

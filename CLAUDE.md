@@ -5,11 +5,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ### Package Manager
-This project uses both npm and pnpm (pnpm-lock.yaml present), but npm scripts are defined:
+This project uses npm for package management with the following scripts:
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run start` - Start production server
-- `npm run lint` - Run ESLint
+- `npm run lint` - Run ESLint with Next.js configuration
 
 ### Development Server
 - Local development runs on http://localhost:3000
@@ -18,12 +18,14 @@ This project uses both npm and pnpm (pnpm-lock.yaml present), but npm scripts ar
 ## Project Architecture
 
 ### Framework & Tech Stack
-- **Next.js 15** with App Router (TypeScript)
-- **React 19** with client-side components
-- **Tailwind CSS v4** for styling
+- **Next.js 15.4.5** with App Router (TypeScript)
+- **React 19.1.0** with client-side components
+- **Tailwind CSS v4** for styling with PostCSS integration
 - **Radix UI** components for accessible UI primitives
-- **TanStack Query** for API state management
-- **Zod** for schema validation
+- **TanStack React Query v5** for API state management
+- **Zod v4** for schema validation
+- **Axios** for HTTP client
+- **React Hook Form** with Zod resolvers for form handling
 
 ### Core Architecture Patterns
 
@@ -35,10 +37,10 @@ This is a restaurant website for "Xichuan Noodles" with the following key areas:
 - **Component Architecture**: Page-level components in `src/app/components/`
 
 #### Key Data Flow
-1. **Menu Data**: Static data in `src/app/data/menu-data.ts` with typed interfaces
-2. **Cart State**: React Context provider with validation and error handling
-3. **Theme Management**: Custom hook system with seasonal themes and dark mode
-4. **API Integration**: CraveUp API client for restaurant operations
+1. **Menu Data**: Static data in `src/app/data/menu-data.ts` with typed `MenuItem` interfaces
+2. **Cart State**: React Context provider (`cart-provider.tsx`) with validation and error handling
+3. **Theme Management**: Custom hook system (`use-restaurant-theme.tsx`) with seasonal themes
+4. **API Integration**: CraveUp API client with comprehensive types in `src/lib/api/`
 
 ### Directory Structure
 
@@ -64,19 +66,22 @@ This is a restaurant website for "Xichuan Noodles" with the following key areas:
 ### Key Components
 
 #### Menu & Cart System
-- Menu items are typed with `MenuItem` interface including categories, spice levels, dietary flags
-- Cart uses React Context with validation, error handling, and automatic pricing
-- Shopping cart automatically opens when items are added
+- Menu items use `MenuItem` interface with categories (`signature`, `noodles`, `dumplings`, `appetizers`, `beverages`)
+- Cart items extend `MenuItem` with `CartItem` interface including quantity, options, and cart ID
+- Cart Context provider handles state management with validation and error boundaries
+- CraveUp API integration for cart operations with comprehensive type definitions
 
 #### Theme System
-- Custom `RestaurantThemeProvider` with seasonal themes and dark mode
-- Theme engine loads JSON configurations and applies CSS custom properties
-- Multiple theme hooks for different use cases (classes, animations, seasonal)
+- Custom theme hooks in `src/hooks/use-restaurant-theme.tsx`
+- Theme engine in `src/lib/theme-engine.ts` for dynamic styling
+- Mobile detection hook (`use-mobile.ts`) for responsive behavior
 
 #### API Integration
-- CraveUp API client with typed responses and error handling
-- Cart operations, menu fetching, and payment integration
-- Comprehensive error handling with custom CraveUpAPIError class
+- CraveUp API client in `src/lib/api/` with dedicated modules:
+  - `client.ts` - Base HTTP client configuration
+  - `crave-client.ts` - Restaurant-specific API methods
+  - `types.ts` - Comprehensive type definitions for API responses
+  - `hooks.ts` - React Query hooks for data fetching
 
 ### TypeScript Configuration
 - Strict TypeScript with path aliases (`@/*` maps to `./src/*`)
