@@ -1,306 +1,203 @@
-// Restaurant API Client
-import { apiHeaders, endpoints, handleAPIResponse, CRAVEUP_API_BASE, CraveUpAPIError } from './config'
 import type {
-  Location,
-  Product,
-  MenuResponse,
-  Cart,
+  AddCartItemPayload,
   CartItem,
-  TimeInterval,
-  GratuitySettings,
+  GetLocationViaSlugType,
+  LocationAddressDTO,
+  MenuResponse,
   PaymentIntent,
-  DiscountCode
-} from './types'
+  Product,
+  SelectedModifierTypes,
+  StorefrontCart,
+  TimeInterval,
+  UpdateGratuityPayload,
+  UpdateOrderTimePayload,
+  ValidateAndUpdateCustomerPayload,
+} from "./types";
+import { storefrontClient } from "@/lib/storefront-client";
 
-// Location & Menu API
-export const fetchLocation = async (locationId: string): Promise<Location> => {
-  const response = await fetch(endpoints.location(locationId), {
-    headers: apiHeaders()
-  })
-  return handleAPIResponse(response)
+const http = storefrontClient.http;
+
+const buildMenuQuery = (orderDate?: string, orderTime?: string) => {
+  const query: Record<string, string> = {};
+
+  if (orderDate) {
+    query.orderDate = orderDate;
+  }
+
+  if (orderTime) {
+    query.orderTime = orderTime;
+  }
+
+  return query;
+};
+
+export async function fetchLocation(locationId: string): Promise<GetLocationViaSlugType> {
+  return storefrontClient.locations.getById(locationId);
 }
 
-export const fetchMenuItems = async (
+export async function fetchMenuItems(
   locationId: string,
   orderDate?: string,
-  orderTime?: string
-): Promise<MenuResponse> => {
-  const response = await fetch(endpoints.menus(locationId, orderDate, orderTime), {
-    headers: apiHeaders()
-  })
-  return handleAPIResponse(response)
+  orderTime?: string,
+): Promise<MenuResponse> {
+  return http.get<MenuResponse>(`/api/v1/locations/${locationId}/menus`, {
+    query: buildMenuQuery(orderDate, orderTime),
+  });
 }
 
-export const fetchProducts = async (locationId: string): Promise<Product[]> => {
-  const response = await fetch(endpoints.products(locationId))
-  const products = await handleAPIResponse(response)
-  
-  // Ensure prices are numbers, not strings
-  return products.map((product: Product) => ({
-    ...product,
-    price: typeof product.price === 'string' ? parseFloat(product.price) : product.price
-  }))
+export async function fetchProducts(locationId: string): Promise<Product[]> {
+  return http.get<Product[]>(`/api/v1/locations/${locationId}/products`);
 }
 
-export const fetchPopularProducts = async (locationId: string): Promise<Product[]> => {
-  const response = await fetch(endpoints.popularProducts(locationId), {
-    headers: apiHeaders()
-  })
-  const products = await handleAPIResponse(response)
-  
-  // Ensure prices are numbers, not strings
-  return products.map((product: Product) => ({
-    ...product,
-    price: typeof product.price === 'string' ? parseFloat(product.price) : product.price
-  }))
+export async function fetchPopularProducts(locationId: string): Promise<Product[]> {
+  return http.get<Product[]>(`/api/v1/locations/${locationId}/products/popular`);
 }
 
-export const fetchProduct = async (
-  locationId: string,
-  productId: string
-): Promise<Product> => {
-  const response = await fetch(endpoints.product(locationId, productId), {
-    headers: apiHeaders()
-  })
-  return handleAPIResponse(response)
+export async function fetchProduct(locationId: string, productId: string): Promise<Product> {
+  return http.get<Product>(`/api/v1/locations/${locationId}/products/${productId}`);
 }
 
-export const fetchTimeIntervals = async (locationId: string): Promise<TimeInterval[]> => {
-  const response = await fetch(endpoints.timeIntervals(locationId), {
-    headers: apiHeaders()
-  })
-  return handleAPIResponse(response)
+export async function fetchTimeIntervals(locationId: string): Promise<TimeInterval[]> {
+  const response = await storefrontClient.locations.getOrderTimes(locationId);
+  return response.orderDays;
 }
 
-export const fetchGratuitySettings = async (locationId: string): Promise<GratuitySettings> => {
-  const response = await fetch(endpoints.gratuity(locationId), {
-    headers: apiHeaders()
-  })
-  return handleAPIResponse(response)
+export async function fetchGratuitySettings(locationId: string) {
+  return storefrontClient.locations.getGratuity(locationId);
 }
 
-// Cart Management API
-export const createCart = async (locationId: string): Promise<Cart> => {
-  const response = await fetch(endpoints.carts(locationId), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      currentCartId: ""
-    })
-  })
-  const result = await handleAPIResponse(response)
-  
-  // If the response only contains cartId, fetch the full cart
-  if (result.cartId && !result.items) {
-    return fetchCart(locationId, result.cartId)
+export async function createCart(locationId: string, currentCartId = ""): Promise<StorefrontCart> {
+  const payload = {
+    marketplaceId: null,
+    currentCartId,
+  };
+
+  const response = await http.post<{ cartId: string }>(`/api/v1/locations/${locationId}/carts`, payload);
+
+  if (response?.cartId) {
+    return fetchCart(locationId, response.cartId);
   }
-  
-  return result
+
+  // some environments return full cart body already
+  return response as unknown as StorefrontCart;
 }
 
-export const fetchCart = async (locationId: string, cartId: string): Promise<Cart> => {
-  const response = await fetch(endpoints.cart(locationId, cartId))
-  return handleAPIResponse(response)
+export async function fetchCart(locationId: string, cartId: string): Promise<StorefrontCart> {
+  return storefrontClient.cart.get(locationId, cartId);
 }
 
-export const updateCart = async (
+export async function updateCart(locationId: string, cartId: string, items: CartItem[]): Promise<StorefrontCart> {
+  return http.patch<StorefrontCart>(`/api/v1/locations/${locationId}/carts/${cartId}`, { items });
+}
+
+export async function deleteCart(locationId: string, cartId: string): Promise<void> {
+  await storefrontClient.cart.delete(locationId, cartId);
+}
+
+export async function updateCartGratuity(
   locationId: string,
   cartId: string,
-  items: CartItem[]
-): Promise<Cart> => {
-  const response = await fetch(endpoints.cart(locationId, cartId), {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json'
+  payload: UpdateGratuityPayload,
+): Promise<StorefrontCart> {
+  await storefrontClient.cart.updateGratuity(locationId, cartId, payload);
+  return fetchCart(locationId, cartId);
+}
+
+export async function setDeliveryAddress(
+  locationId: string,
+  cartId: string,
+  address: LocationAddressDTO,
+): Promise<StorefrontCart> {
+  await storefrontClient.cart.setDelivery(locationId, cartId, address);
+  return fetchCart(locationId, cartId);
+}
+
+export async function setTableInfo(
+  locationId: string,
+  cartId: string,
+  tableNumber: string,
+): Promise<StorefrontCart> {
+  await storefrontClient.cart.setTable(locationId, cartId, tableNumber);
+  return fetchCart(locationId, cartId);
+}
+
+export async function setRoomServiceInfo(
+  locationId: string,
+  cartId: string,
+  payload: { lastName: string; roomNumber: string },
+): Promise<StorefrontCart> {
+  await storefrontClient.cart.setRoom(locationId, cartId, payload);
+  return fetchCart(locationId, cartId);
+}
+
+export async function updateOrderTime(
+  locationId: string,
+  cartId: string,
+  payload: UpdateOrderTimePayload,
+): Promise<StorefrontCart> {
+  await storefrontClient.cart.updateOrderTime(locationId, cartId, payload);
+  return fetchCart(locationId, cartId);
+}
+
+export async function validateAndUpdateCart(
+  locationId: string,
+  cartId: string,
+  payload: ValidateAndUpdateCustomerPayload,
+): Promise<StorefrontCart> {
+  await storefrontClient.cart.validateAndUpdateCustomer(locationId, cartId, payload);
+  return fetchCart(locationId, cartId);
+}
+
+export async function createPaymentIntent(locationId: string, cartId: string): Promise<PaymentIntent> {
+  return http.get<PaymentIntent>(`/api/v1/stripe/payment-intent`, {
+    query: {
+      locationId,
+      cartId,
     },
-    body: JSON.stringify({ items })
-  })
-  return handleAPIResponse(response)
+  });
 }
 
-export const deleteCart = async (locationId: string, cartId: string): Promise<void> => {
-  const response = await fetch(endpoints.cart(locationId, cartId), {
-    method: 'DELETE'
-  })
-  return handleAPIResponse(response)
-}
-
-export const updateCartGratuity = async (
+export async function applyDiscountCode(
   locationId: string,
-  cartId: string,
-  gratuity: number
-): Promise<Cart> => {
-  const response = await fetch(endpoints.cartGratuity(locationId, cartId), {
-    method: 'PUT',
-    headers: apiHeaders(),
-    body: JSON.stringify({ gratuity })
-  })
-  return handleAPIResponse(response)
+  payload: { code: string; cartId: string },
+): Promise<StorefrontCart> {
+  await storefrontClient.discounts.apply(locationId, payload);
+  return fetchCart(locationId, payload.cartId);
 }
 
-export const setDeliveryAddress = async (
-  locationId: string,
-  cartId: string,
-  address: { street: string; city: string; state: string; zip: string; apt?: string }
-): Promise<Cart> => {
-  const response = await fetch(endpoints.cartDelivery(locationId, cartId), {
-    method: 'PUT',
-    headers: apiHeaders(),
-    body: JSON.stringify({ address })
-  })
-  return handleAPIResponse(response)
+export async function removeDiscountCode(locationId: string, cartId: string): Promise<StorefrontCart> {
+  await storefrontClient.discounts.remove(locationId, cartId);
+  return fetchCart(locationId, cartId);
 }
 
-export const setTableNumber = async (
-  locationId: string,
-  cartId: string,
-  tableNumber: string
-): Promise<Cart> => {
-  const response = await fetch(endpoints.cartTable(locationId, cartId), {
-    method: 'PUT',
-    headers: apiHeaders(),
-    body: JSON.stringify({ tableNumber })
-  })
-  return handleAPIResponse(response)
-}
-
-export const setRoomService = async (
-  locationId: string,
-  cartId: string,
-  roomNumber: string
-): Promise<Cart> => {
-  const response = await fetch(endpoints.cartRoom(locationId, cartId), {
-    method: 'PUT',
-    headers: apiHeaders(),
-    body: JSON.stringify({ roomNumber })
-  })
-  return handleAPIResponse(response)
-}
-
-export const updateOrderTime = async (
-  locationId: string,
-  cartId: string,
-  orderTime: string
-): Promise<Cart> => {
-  const response = await fetch(endpoints.cartOrderTime(locationId, cartId), {
-    method: 'PUT',
-    headers: apiHeaders(),
-    body: JSON.stringify({ orderTime })
-  })
-  return handleAPIResponse(response)
-}
-
-export const validateAndUpdateCart = async (
-  locationId: string,
-  cartId: string,
-  customerData: {
-    customerName?: string
-    emailAddress?: string
-    phoneNumber?: string
-  }
-): Promise<Cart> => {
-  const response = await fetch(endpoints.cartValidate(locationId, cartId), {
-    method: 'PUT',
-    headers: apiHeaders(),
-    body: JSON.stringify(customerData)
-  })
-  return handleAPIResponse(response)
-}
-
-// Payment API
-export const createPaymentIntent = async (
-  locationId: string,
-  cartId: string
-): Promise<PaymentIntent> => {
-  const response = await fetch(endpoints.paymentIntent(locationId, cartId), {
-    headers: apiHeaders()
-  })
-  return handleAPIResponse(response)
-}
-
-// Discount API
-export const applyDiscountCode = async (
-  locationId: string,
-  code: string,
-  cartId: string
-): Promise<DiscountCode> => {
-  const response = await fetch(endpoints.applyDiscount(locationId), {
-    method: 'POST',
-    headers: apiHeaders(),
-    body: JSON.stringify({ code, cartId })
-  })
-  return handleAPIResponse(response)
-}
-
-export const removeDiscountCode = async (
-  locationId: string,
-  cartId: string
-): Promise<void> => {
-  const response = await fetch(endpoints.removeDiscount(locationId), {
-    method: 'DELETE',
-    headers: apiHeaders(),
-    body: JSON.stringify({ cartId })
-  })
-  return handleAPIResponse(response)
-}
-
-// Helper functions
-export const addItemToCart = async (
+export async function addItemToCart(
   locationId: string,
   cartId: string,
   product: Product,
-  quantity: number = 1,
-  modifiers?: { id: string; name: string; price: number }[],
-  specialInstructions?: string
-): Promise<Cart> => {
-  const requestBody = {
-    id: product._id || product.id,
+  quantity = 1,
+  modifiers?: SelectedModifierTypes[] | undefined,
+  specialInstructions?: string,
+): Promise<StorefrontCart> {
+  const payload: AddCartItemPayload = {
+    productId: product.id,
     quantity,
-    specialInstructions: specialInstructions || '',
-    itemUnavailableAction: 'remove_item',
-    selectedModifiers: modifiers || []
-  }
-  
-  const url = `${CRAVEUP_API_BASE}/api/v1/locations/${locationId}/carts/${cartId}/cart-item`
-  
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      ...apiHeaders(),
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(requestBody)
-  })
-  
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new CraveUpAPIError(response.status, errorText)
-  }
-  
-  return handleAPIResponse(response)
+    specialInstructions,
+    selections: modifiers,
+  };
+
+  const response = await storefrontClient.cart.addItem(locationId, cartId, payload);
+  return response.cart;
 }
 
-export const updateCartItemQuantity = async (
+export async function updateCartItemQuantity(
   locationId: string,
   cartId: string,
   itemId: string,
-  quantity: number
-): Promise<Cart> => {
-  const cart = await fetchCart(locationId, cartId)
-  
-  const updatedItems = cart.items.map(item =>
-    item.id === itemId ? { ...item, quantity, itemTotal: parseFloat(item.price) * quantity } : item
-  ).filter(item => item.quantity > 0) // Remove items with 0 quantity
-  
-  return updateCart(locationId, cartId, updatedItems)
+  quantity: number,
+): Promise<StorefrontCart> {
+  return storefrontClient.cart.updateItemQuantity(locationId, cartId, itemId, quantity);
 }
 
-export const removeCartItem = async (
-  locationId: string,
-  cartId: string,
-  itemId: string
-): Promise<Cart> => {
-  return updateCartItemQuantity(locationId, cartId, itemId, 0)
+export async function removeCartItem(locationId: string, cartId: string, itemId: string): Promise<StorefrontCart> {
+  return storefrontClient.cart.updateItemQuantity(locationId, cartId, itemId, 0);
 }

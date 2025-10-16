@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@craveup/storefront-sdk':
+        specifier: ^0.3.0
+        version: 0.3.0
       '@hookform/resolvers':
         specifier: ^5.2.1
         version: 5.2.1(react-hook-form@7.61.1(react@19.1.0))
@@ -197,6 +200,9 @@ packages:
   '@babel/runtime@7.28.2':
     resolution: {integrity: sha512-KHp2IflsnGywDjBWDkR9iEqiWSpc8GIi0lgTT3mOElT0PP1tG26P4tmFI2YvAdzgq9RGyoHZQEIEdZy6Ec5xCA==}
     engines: {node: '>=6.9.0'}
+
+  '@craveup/storefront-sdk@0.3.0':
+    resolution: {integrity: sha512-gV3B7tqgttJ071P8G4IugCHixyPSGsubzQ4Sm7Viq5ABvg/lrWh4nsrK7d8lvwRZA9IVBU2WN5teWLErIDb2xw==}
 
   '@date-fns/tz@1.2.0':
     resolution: {integrity: sha512-LBrd7MiJZ9McsOgxqWX7AaxrDjcFVjWH/tIKJd7pnR7McaslGYOP1QmmiBXdJH/H/yLCT+rcQ7FaPBUxRGUtrg==}
@@ -2909,6 +2915,8 @@ snapshots:
       '@jridgewell/trace-mapping': 0.3.29
 
   '@babel/runtime@7.28.2': {}
+
+  '@craveup/storefront-sdk@0.3.0': {}
 
   '@date-fns/tz@1.2.0': {}
 

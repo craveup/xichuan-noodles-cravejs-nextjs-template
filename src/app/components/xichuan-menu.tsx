@@ -130,7 +130,7 @@ export function XichuanMenu() {
           </p>
           {useApi && (
             <div className="mt-4 text-sm text-green-600 dark:text-green-400">
-              ✓ Connected to CraveUp API
+              Connected to CraveUp API
             </div>
           )}
         </div>

@@ -1,200 +1,50 @@
-// ✅ **Modifier Item in the Cart**
-export interface CartModifierItem {
-  id: string;
-  name: string;
-  price: string;
-  quantity: number;
-}
+import type {
+  AddCartItemPayload,
+  AddCartItemResponse,
+  CartCustomer,
+  CartItem,
+  CartModifierGroup,
+  CartModifierItem,
+  CreatePaymentIntentResponse,
+  DeliveryInfo,
+  GetLocationViaSlugType,
+  MerchantLocation,
+  Menu,
+  OrderTimesResponse,
+  Product,
+  ProductDescription,
+  RequestConfig,
+  StorefrontCart,
+  UpdateGratuityPayload,
+  UpdateOrderTimePayload,
+  ValidateAndUpdateCustomerPayload,
+  VerifyDiscountPayload,
+  WaiterTipConfigResponse,
+  SelectedModifierTypes,
+  SelectedModifierOption,
+  LocationAddressDTO,
+} from "@craveup/storefront-sdk";
 
-// ✅ **Modifier Group in the Cart**
-export interface CartModifierGroup {
-  id: string;
-  name: string;
-  isFixed: boolean;
-  required: boolean;
-  quantity: number;
-  items: CartModifierItem[];
-}
+export type Cart = StorefrontCart;
+export type MenuResponse = { menus: Menu[]; popularProducts?: Product[] };
+export type TimeInterval = OrderTimesResponse["orderDays"][number];
+export type GratuitySettings = WaiterTipConfigResponse;
+export type PaymentIntent = CreatePaymentIntentResponse;
 
-// ✅ **Single Cart Item**
-export interface CartItem {
-  id: string;
-  productId: string;
-  name: string;
-  description: string;
-  imageUrl: string;
-  price: string;
-  quantity: number;
-  total: string;
-  discount: string;
-  categoryId: string | null;
-  specialInstructions?: string;
-  itemUnavailableAction: string;
-  selectedModifiers: CartModifierGroup[];
-}
-
-// ✅ **Customer Information in Cart**
-export interface CartCustomer {
-  name?: string;
-  emailAddress?: string;
-  phoneNumber?: string;
-  customerId?: string;
-}
-
-// ✅ **Fees Structure in Cart**
-export interface CartFees {
-  enterpriseFeeRate: string;
-  enterpriseFeeFix: string;
-  serviceFeeRate: string;
-  serviceFeeFix: string;
-  taxRate: string;
-  tipRate: string;
-  deliveryFeeFix: string;
-  deliveryFeeRate: string;
-  fulfillmentMethodFeeFix: string;
-  fulfillmentMethodFeeRate: string;
-}
-
-// ✅ **Delivery Information**
-export interface DeliveryInfo {
-  deliveryAddress?: string;
-  lat?: number;
-  lng?: number;
-}
-
-// ✅ **Room Service Information**
-export interface RoomServiceInfo {
-  lastName?: string;
-  roomNumber?: string;
-}
-
-// ✅ **Table Service Information**
-export interface TableServiceInfo {
-  tableNumber?: string;
-}
-
-// ✅ **Main Cart Type**
-export interface CartResponse {
-  id: string;
-  timezone: string;
-  restaurantDisplayName: string;
-  fulfillmentMethod: string;
-  fulfillmentIdentifier?: string;
-  deliveryInfo?: DeliveryInfo;
-  roomServiceInfo?: RoomServiceInfo;
-  tableServiceInfo?: TableServiceInfo;
-  pickupType: string;
-  orderTime: string;
-  orderDate: string;
-  locationId: string;
-  discountCode?: string;
-  checkoutUrl: string;
-  cartUrl: string;
-  totalQuantity: number;
-  note?: string;
-  currency: string;
-  country: string;
-  statementDescriptor: string;
-  subTotal: string;
-  taxTotal: string;
-  orderTotal: string;
-  discountTotal: string;
-  orderTotalWithServiceFee: string;
-  waiterTipTotal: string;
-  serviceFeeTotal: string;
-  deliveryFeeTotal: string;
-  enterpriseFeeTotal: string;
-  subTotalWithoutDiscount: string;
-  taxAndFeeTotal: string;
-  fees: CartFees;
-  customer?: CartCustomer;
-  items: CartItem[];
-}
-
-// ✅ **Location Data**
-export interface LocationData {
-  id: string;
-  name: string;
-  slug: string;
-  displayName: string;
-  address: string;
-  city: string;
-  state: string;
-  country: string;
-  timezone: string;
-  currency: string;
-  phone?: string;
-  email?: string;
-  website?: string;
-}
-
-// ✅ **Product Data**
-export interface ProductData {
-  id: string;
-  name: string;
-  description: string;
-  price: string;
-  imageUrl: string;
-  categoryId: string;
-  isAvailable: boolean;
-  modifierGroups?: { id: string; name: string; items: { id: string; name: string; price: string }[] }[];
-}
-
-// ✅ **Checkout Data**
-export interface CheckoutData {
-  cartId: string;
-  locationId: string;
-  customer: CartCustomer;
-  paymentMethod: string;
-  fulfillmentMethod: string;
-  orderTime: string;
-  orderDate: string;
-  note?: string;
-  tipAmount?: string;
-  promoCode?: string;
-}
-
-// ✅ **Payment Intent Response**
-export interface PaymentIntentResponse {
-  clientSecret: string;
-  paymentIntentId: string;
-  publishableKey: string;
-}
-
-// ✅ **Product from API**
-export interface Product {
-  id: string;
-  _id?: string;
-  name: string;
-  description: string;
-  price: string | number;
-  images?: string[];
-  category?: string;
-  availability?: string;
-  modifierGroups?: { id: string; name: string; items: { id: string; name: string; price: string }[] }[];
-}
-
-// ✅ **Legacy type aliases for backwards compatibility**
-export type Location = LocationData;
-export type Cart = CartResponse;
-export interface MenuResponse {
-  categories: { id: string; name: string; products: Product[] }[];
-}
-export interface TimeInterval {
-  id: string;
-  startTime: string;
-  endTime: string;
-  isAvailable: boolean;
-}
-export interface GratuitySettings {
-  defaultPercentages: number[];
-  minimumAmount: number;
-  maximumAmount: number;
-}
-export type PaymentIntent = PaymentIntentResponse;
-export interface DiscountCode {
-  id: string;
-  code: string;
-  discountAmount: number;
-  discountType: 'percentage' | 'fixed';
-}
+export type { CartCustomer, CartItem, CartModifierGroup, CartModifierItem, DeliveryInfo, Product, ProductDescription };
+export type {
+  AddCartItemPayload,
+  AddCartItemResponse,
+  GetLocationViaSlugType,
+  MerchantLocation,
+  LocationAddressDTO,
+  RequestConfig,
+  StorefrontCart,
+  SelectedModifierOption,
+  SelectedModifierTypes,
+  UpdateGratuityPayload,
+  UpdateOrderTimePayload,
+  ValidateAndUpdateCustomerPayload,
+  VerifyDiscountPayload,
+  WaiterTipConfigResponse,
+};
