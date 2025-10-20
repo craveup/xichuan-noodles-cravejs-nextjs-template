@@ -6,6 +6,7 @@ import "./globals.css";
 import { CartProvider } from "./providers/cart-provider";
 import { RestaurantThemeProvider } from "@/hooks/use-restaurant-theme";
 import { ErrorBoundary } from "./components/error-boundary";
+import { XichuanQueryClientProvider } from "./providers/query-client-provider";
 
 // Load Google Fonts
 const geistSans = Geist({
@@ -35,9 +36,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ErrorBoundary>
-          <RestaurantThemeProvider defaultThemePath="/themes/leclerc-theme.json">
-            <CartProvider>{children}</CartProvider>
-          </RestaurantThemeProvider>
+          <XichuanQueryClientProvider>
+            <RestaurantThemeProvider defaultThemePath="/themes/leclerc-theme.json">
+              <CartProvider>{children}</CartProvider>
+            </RestaurantThemeProvider>
+          </XichuanQueryClientProvider>
         </ErrorBoundary>
       </body>
     </html>

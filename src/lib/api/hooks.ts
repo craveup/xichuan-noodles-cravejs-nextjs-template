@@ -9,13 +9,16 @@ import type {
 } from "./types";
 
 // Menu hooks
-export const useMenuItems = (locationId: string, orderDate?: string, orderTime?: string) =>
-  useQuery({
-    queryKey: ["menu", locationId, orderDate, orderTime],
-    queryFn: () => api.fetchMenuItems(locationId, orderDate, orderTime),
+export const useMenuItems = (locationId: string, orderDate?: string, orderTime?: string) => {
+  const menuOnly = !(orderDate && orderTime);
+
+  return useQuery({
+    queryKey: ["menu", locationId, orderDate, orderTime, menuOnly],
+    queryFn: () => api.fetchMenuItems(locationId, orderDate, orderTime, { menuOnly }),
     staleTime: 5 * 60 * 1000,
     enabled: Boolean(locationId),
   });
+};
 
 export const useProducts = (locationId: string) =>
   useQuery({

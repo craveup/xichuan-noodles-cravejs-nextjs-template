@@ -9,6 +9,7 @@ import type {
   DeliveryInfo,
   GetLocationViaSlugType,
   MerchantLocation,
+  MerchantApiResponse,
   Menu,
   OrderTimesResponse,
   Product,
@@ -31,7 +32,16 @@ export type TimeInterval = OrderTimesResponse["orderDays"][number];
 export type GratuitySettings = WaiterTipConfigResponse;
 export type PaymentIntent = CreatePaymentIntentResponse;
 
-export type { CartCustomer, CartItem, CartModifierGroup, CartModifierItem, DeliveryInfo, Product, ProductDescription };
+export type {
+  CartCustomer,
+  CartItem,
+  CartModifierGroup,
+  CartModifierItem,
+  DeliveryInfo,
+  Product,
+  ProductDescription,
+  MerchantApiResponse,
+};
 export type {
   AddCartItemPayload,
   AddCartItemResponse,

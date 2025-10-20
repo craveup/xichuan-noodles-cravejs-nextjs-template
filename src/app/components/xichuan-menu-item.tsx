@@ -26,6 +26,7 @@ interface XichuanMenuItemProps {
 
 export function XichuanMenuItem({ item }: XichuanMenuItemProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedOptions, setSelectedOptions] = useState({
     spiceLevel: item.spiceLevel || 1,
     noodleType: "hand-pulled" as "hand-pulled" | "wide" | "thin",
@@ -33,13 +34,22 @@ export function XichuanMenuItem({ item }: XichuanMenuItemProps) {
     specialInstructions: "",
   });
   const { addToCart } = useCart();
+  const normalizedCategory = item.category.toLowerCase();
+  const showNoodleOptions =
+    normalizedCategory.includes("noodle") ||
+    normalizedCategory.includes("signature");
 
-  const handleAddToCart = () => {
-    addToCart({
-      ...item,
-      options: selectedOptions,
-    });
-    setIsModalOpen(false);
+  const handleAddToCart = async () => {
+    try {
+      setIsSubmitting(true);
+      await addToCart({
+        ...item,
+        options: selectedOptions,
+      });
+      setIsModalOpen(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const calculatePrice = () => {
@@ -241,7 +251,7 @@ export function XichuanMenuItem({ item }: XichuanMenuItemProps) {
             </div>
 
             {/* Noodle Type */}
-            {item.category === "noodles" || item.category === "signature" ? (
+            {showNoodleOptions ? (
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Noodle Type</Label>
                 <RadioGroup
@@ -339,8 +349,9 @@ export function XichuanMenuItem({ item }: XichuanMenuItemProps) {
               onClick={handleAddToCart}
               className="flex-1 text-white dark:text-white"
               style={{ backgroundColor: "hsl(var(--brand-accent))" }}
+              disabled={isSubmitting}
             >
-              Add to Cart
+              {isSubmitting ? "Adding..." : "Add to Cart"}
             </Button>
           </div>
         </DialogContent>

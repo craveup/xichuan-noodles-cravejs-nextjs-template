@@ -1,6 +1,7 @@
 "use client";
 
-// import { useState } from "react";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,29 +11,38 @@ import { XichuanCart } from "../components/xichuan-cart";
 import { XichuanFooter } from "../components/xichuan-footer";
 import { ClientIcon } from "../components/client-icon";
 import { useCart } from "../providers/cart-provider";
+import { fetchLocation, fetchMerchant } from "@/lib/api/client";
+import type { MerchantLocation } from "@/lib/api/types";
 
 interface Location {
   id: string;
   name: string;
-  address: string;
-  neighborhood: string;
-  phone: string;
-  hours: {
-    weekdays: string;
-    saturday: string;
-    sunday: string;
+  address?: string;
+  neighborhood?: string;
+  phone?: string;
+  hours?: {
+    weekdays?: string;
+    saturday?: string;
+    sunday?: string;
   };
-  rating: number;
-  reviewCount: number;
-  features: string[];
-  image: string;
+  rating?: number;
+  reviewCount?: number;
+  features?: string[];
+  image?: string;
+  logo?: string;
+  bio?: string;
   isMainLocation?: boolean;
-  orderingAvailable: boolean;
-  deliveryRadius: string;
-  pickupAvailable: boolean;
+  orderingAvailable?: boolean;
+  deliveryRadius?: string;
+  pickupAvailable?: boolean;
+  methodsStatus?: MerchantLocation["methodsStatus"];
 }
 
-const locations: Location[] = [
+const LOCAL_MODE = process.env.NEXT_PUBLIC_LOCAL_MODE === "true";
+const MERCHANT_SLUG = process.env.NEXT_PUBLIC_MERCHANT_SLUG ?? null;
+const FALLBACK_LOCATION_IMAGE = "/images/xichuan-noodles/locations/chinatown-storefront.webp";
+
+const fallbackLocations: Location[] = [
   {
     id: "chinatown",
     name: "Xichuan Noodles Chinatown",
@@ -108,7 +118,91 @@ const locations: Location[] = [
 
 export default function XichuanLocationsPage() {
   const { isCartOpen, closeCart } = useCart();
-  // const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
+  const locationIdEnv = process.env.NEXT_PUBLIC_LOCATION_ID;
+  const preferApi = !LOCAL_MODE && Boolean(locationIdEnv);
+
+  const locationQuery = useQuery({
+    queryKey: ["location-meta", locationIdEnv],
+    queryFn: () => fetchLocation(locationIdEnv!),
+    enabled: preferApi && Boolean(locationIdEnv),
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const derivedSlug =
+    locationQuery.data?.restaurantSlug ?? MERCHANT_SLUG ?? null;
+
+  const merchantQuery = useQuery({
+    queryKey: ["merchant", derivedSlug],
+    queryFn: () => fetchMerchant(derivedSlug!),
+    enabled: preferApi && Boolean(derivedSlug),
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const fallbackMap = useMemo(() => {
+    const map = new Map<string, Location>();
+    fallbackLocations.forEach((loc) => map.set(loc.id, loc));
+    return map;
+  }, []);
+
+  const merchantLocations = useMemo<Location[]>(() => {
+    if (!merchantQuery.data) return [];
+
+    return merchantQuery.data.locations.map((loc) => {
+      const fallback = fallbackMap.get(loc.id);
+      const methods = loc.methodsStatus ?? {};
+      const methodFeatures = [
+        methods.pickup && "Pickup",
+        methods.delivery && "Delivery",
+        methods.table && "Dine In",
+        methods.roomService && "Room Service",
+      ].filter(Boolean) as string[];
+
+      const hasActiveMethod = Object.values(methods).some((value) => Boolean(value));
+      const orderingAvailable = hasActiveMethod
+        ? true
+        : fallback?.orderingAvailable ?? false;
+
+      return {
+        id: loc.id,
+        name: loc.restaurantDisplayName || fallback?.name || "Restaurant",
+        address: loc.addressString ?? fallback?.address,
+        neighborhood: fallback?.neighborhood,
+        phone: fallback?.phone,
+        hours: fallback?.hours,
+        rating: fallback?.rating,
+        reviewCount: fallback?.reviewCount,
+        features: methodFeatures.length > 0 ? methodFeatures : fallback?.features,
+        image: loc.coverPhoto || fallback?.image,
+        logo: loc.restaurantLogo,
+        bio: loc.restaurantBio ?? fallback?.bio,
+        isMainLocation: fallback?.isMainLocation,
+        orderingAvailable,
+        deliveryRadius: fallback?.deliveryRadius,
+        pickupAvailable: methods.pickup ?? fallback?.pickupAvailable,
+        methodsStatus: methods,
+      };
+    });
+  }, [fallbackMap, merchantQuery.data]);
+
+  const usingApi = preferApi && merchantLocations.length > 0;
+  const displayLocations = usingApi ? merchantLocations : fallbackLocations;
+  const loading =
+    preferApi && (locationQuery.isLoading || merchantQuery.isLoading);
+  const apiError = preferApi ? locationQuery.error ?? merchantQuery.error : null;
+
+  const locationCount = displayLocations.length;
+  const ratings = displayLocations
+    .map((loc) => loc.rating)
+    .filter((value): value is number => typeof value === "number");
+  const averageRating =
+    ratings.length > 0
+      ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length
+      : 4.8;
+  const averageRatingDisplay = averageRating.toFixed(1);
+  const totalReviews = displayLocations.reduce(
+    (sum, loc) => sum + (loc.reviewCount ?? 0),
+    0,
+  );
 
   const handleOrderFromLocation = (locationId: string) => {
     // In a real app, this would set the selected location and redirect to menu
@@ -116,7 +210,8 @@ export default function XichuanLocationsPage() {
     window.location.href = "/";
   };
 
-  const handleGetDirections = (address: string) => {
+  const handleGetDirections = (address?: string) => {
+    if (!address) return;
     const encodedAddress = encodeURIComponent(address);
     window.open(`https://maps.google.com/maps?q=${encodedAddress}`, "_blank");
   };
@@ -138,226 +233,301 @@ export default function XichuanLocationsPage() {
           </p>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <Card className="text-center">
-            <CardContent className="pt-6">
-              <div
-                className="text-3xl font-bold mb-2"
-                style={{ color: "hsl(var(--brand-accent))" }}
-              >
-                3
-              </div>
-              <div className="text-sm text-muted-foreground">NYC Locations</div>
-            </CardContent>
-          </Card>
-          <Card className="text-center">
-            <CardContent className="pt-6">
-              <div
-                className="text-3xl font-bold mb-2"
-                style={{ color: "hsl(var(--brand-accent))" }}
-              >
-                1000+
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Bowls Served Daily
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="text-center">
-            <CardContent className="pt-6">
-              <div
-                className="text-3xl font-bold mb-2"
-                style={{ color: "hsl(var(--brand-accent))" }}
-              >
-                100%
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Hand-Pulled Fresh
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {usingApi && (
+          <div className="mb-8 flex justify-center">
+            <Badge variant="secondary" className="text-xs">
+              Connected to CraveUp API
+            </Badge>
+          </div>
+        )}
 
-        {/* Locations Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-          {locations.map((location) => (
-            <Card
-              key={location.id}
-              className="overflow-hidden hover:shadow-lg transition-shadow"
-            >
-              {/* Location Image */}
-              <div className="relative h-48 overflow-hidden">
-                <img
-                  src={location.image}
-                  alt={location.name}
-                  className="w-full h-full object-cover"
-                />
-                {location.isMainLocation && (
-                  <Badge
-                    className="absolute top-3 left-3 text-white"
-                    style={{ backgroundColor: "hsl(var(--brand-accent))" }}
+        {!usingApi && preferApi && apiError && (
+          <div className="mb-8 flex justify-center">
+            <div className="rounded-md border border-amber-400 bg-amber-100 px-4 py-2 text-sm text-amber-800">
+              Unable to reach the CraveUp API. Showing curated location details.
+            </div>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <ClientIcon
+              name="Loader2"
+              className="h-10 w-10 animate-spin text-muted-foreground"
+            />
+          </div>
+        ) : (
+          <>
+            {/* Quick Stats */}
+            <div className="grid grid-cols-1 gap-6 mb-12 md:grid-cols-3">
+              <Card className="text-center">
+                <CardContent className="pt-6">
+                  <div
+                    className="text-3xl font-bold mb-2"
+                    style={{ color: "hsl(var(--brand-accent))" }}
                   >
-                    Original Location
-                  </Badge>
-                )}
-                <div className="absolute top-3 right-3 bg-black/70 dark:bg-white/20 text-white dark:text-foreground px-2 py-1 rounded text-sm flex items-center gap-1 backdrop-blur-sm">
-                  <ClientIcon
-                    name="Star"
-                    className="h-3 w-3 fill-yellow-400 text-yellow-400"
-                  />
-                  {location.rating} ({location.reviewCount})
-                </div>
-              </div>
-
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-start justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground">
-                      {location.name}
-                    </h3>
-                    <p className="text-sm text-muted-foreground font-normal">
-                      {location.neighborhood}
-                    </p>
+                    {locationCount}
                   </div>
-                </CardTitle>
-              </CardHeader>
+                  <div className="text-sm text-muted-foreground">
+                    Active Locations
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="text-center">
+                <CardContent className="pt-6">
+                  <div
+                    className="text-3xl font-bold mb-2"
+                    style={{ color: "hsl(var(--brand-accent))" }}
+                  >
+                    {totalReviews > 0
+                      ? totalReviews.toLocaleString()
+                      : "1,000+"}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Guest Reviews
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="text-center">
+                <CardContent className="pt-6">
+                  <div
+                    className="text-3xl font-bold mb-2"
+                    style={{ color: "hsl(var(--brand-accent))" }}
+                  >
+                    {averageRatingDisplay}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Average Rating
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-              <CardContent className="space-y-4">
-                {/* Address */}
-                <div className="flex items-start gap-3">
-                  <ClientIcon
-                    name="MapPin"
-                    className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0"
-                  />
-                  <div className="flex-1">
-                    <p className="text-sm text-foreground">
-                      {location.address}
-                    </p>
+            {/* Locations Grid */}
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 xl:grid-cols-3">
+              {displayLocations.map((location) => {
+                const ratingValue =
+                  typeof location.rating === "number"
+                    ? location.rating.toFixed(1)
+                    : averageRatingDisplay;
+                const reviewValue =
+                  typeof location.reviewCount === "number"
+                    ? location.reviewCount
+                    : undefined;
+                const methodBadges = location.methodsStatus
+                  ? ([
+                      location.methodsStatus.delivery && "Delivery",
+                      location.methodsStatus.pickup && "Pickup",
+                      location.methodsStatus.table && "Dine In",
+                      location.methodsStatus.roomService && "Room Service",
+                    ].filter(Boolean) as string[])
+                  : undefined;
+                const displayFeatures =
+                  methodBadges && methodBadges.length > 0
+                    ? methodBadges
+                    : location.features ?? [];
+
+                return (
+                  <Card
+                    key={location.id}
+                    className="overflow-hidden transition-shadow hover:shadow-lg"
+                  >
+                    <div className="relative h-48 overflow-hidden">
+                      <img
+                        src={location.image ?? FALLBACK_LOCATION_IMAGE}
+                        alt={location.name}
+                        className="h-full w-full object-cover"
+                      />
+                      {location.isMainLocation && (
+                        <Badge
+                          className="absolute top-3 left-3 text-white"
+                          style={{
+                            backgroundColor: "hsl(var(--brand-accent))",
+                          }}
+                        >
+                          Original Location
+                        </Badge>
+                      )}
+                      {(usingApi || ratings.length > 0) && (
+                        <div className="absolute top-3 right-3 flex items-center gap-1 rounded bg-black/70 px-2 py-1 text-sm text-white backdrop-blur-sm dark:bg-white/20 dark:text-foreground">
+                          <ClientIcon
+                            name="Star"
+                            className="h-3 w-3 fill-yellow-400 text-yellow-400"
+                          />
+                          {ratingValue}
+                          {reviewValue ? ` (${reviewValue})` : ""}
+                        </div>
+                      )}
+                    </div>
+
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-start justify-between">
+                        <div>
+                          <h3 className="text-lg font-semibold text-foreground">
+                            {location.name}
+                          </h3>
+                          {location.neighborhood && (
+                            <p className="text-sm font-normal text-muted-foreground">
+                              {location.neighborhood}
+                            </p>
+                          )}
+                        </div>
+                      </CardTitle>
+                      {location.bio && (
+                        <p className="text-sm text-muted-foreground">
+                          {location.bio}
+                        </p>
+                      )}
+                    </CardHeader>
+
+                    <CardContent className="space-y-4">
+                      <div className="flex items-start gap-3">
+                        <ClientIcon
+                          name="MapPin"
+                          className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground"
+                        />
+                        <div className="text-sm text-foreground">
+                          {location.address ?? "Address coming soon"}
+                        </div>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 text-xs"
+                          style={{ color: "hsl(var(--brand-accent))" }}
+                          onClick={() => handleGetDirections(location.address)}
+                          disabled={!location.address}
+                        >
+                          Get Directions
+                          <ClientIcon name="Navigation" className="ml-1 h-3 w-3" />
+                        </Button>
+                      </div>
+
+                      {location.phone && (
+                        <div className="flex items-center gap-3">
+                          <ClientIcon
+                            name="Phone"
+                            className="h-4 w-4 flex-shrink-0 text-muted-foreground"
+                          />
+                          <a
+                            href={`tel:${location.phone}`}
+                            className="text-sm text-foreground transition-colors hover:text-primary hover:underline"
+                          >
+                            {location.phone}
+                          </a>
+                        </div>
+                      )}
+
+                      {location.hours && (
+                        <div className="flex items-start gap-3">
+                          <ClientIcon
+                            name="Clock"
+                            className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground"
+                          />
+                          <div className="space-y-1 text-sm text-foreground">
+                            {location.hours.weekdays && (
+                              <div>Mon-Fri: {location.hours.weekdays}</div>
+                            )}
+                            {location.hours.saturday && (
+                              <div>Saturday: {location.hours.saturday}</div>
+                            )}
+                            {location.hours.sunday && (
+                              <div>Sunday: {location.hours.sunday}</div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {displayFeatures.length > 0 && (
+                        <div className="flex gap-2 overflow-x-auto pb-2">
+                          {displayFeatures.map((feature) => (
+                            <Badge
+                              key={feature}
+                              variant="secondary"
+                              className="flex-shrink-0 whitespace-nowrap text-xs"
+                            >
+                              {feature}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+
+                      <Separator />
+
+                      <div className="space-y-2 text-sm">
+                        {location.deliveryRadius && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">
+                              Delivery Radius:
+                            </span>
+                            <span className="font-medium text-foreground">
+                              {location.deliveryRadius}
+                            </span>
+                          </div>
+                        )}
+                        {typeof location.pickupAvailable === "boolean" && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">
+                              Pickup Available:
+                            </span>
+                            <span className="font-medium text-foreground">
+                              {location.pickupAvailable ? "Yes" : "No"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          className="flex-1 text-white hover:opacity-90"
+                          style={{ backgroundColor: "hsl(var(--brand-accent))" }}
+                          onClick={() => handleOrderFromLocation(location.id)}
+                          disabled={location.orderingAvailable === false}
+                        >
+                          Order Now
+                          <ClientIcon name="ChevronRight" className="ml-1 h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="hover:bg-accent hover:text-accent-foreground"
+                          onClick={() => handleGetDirections(location.address)}
+                          disabled={!location.address}
+                        >
+                          <ClientIcon name="Navigation" className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+
+            {/* Additional Info */}
+            <div className="mt-16 text-center">
+              <Card className="max-w-2xl mx-auto">
+                <CardContent className="pt-6">
+                  <h3 className="text-xl font-semibold mb-4 text-foreground">
+                    Want Xichuan Noodles in Your Neighborhood?
+                  </h3>
+                  <p className="text-muted-foreground mb-6">
+                    We&apos;re expanding across NYC! Contact us if you&apos;d like
+                    to see a Xichuan Noodles location near you or inquire about
+                    catering services for your event.
+                  </p>
+                  <div className="flex gap-4 justify-center">
+                    <Button variant="outline">Contact Us</Button>
                     <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0 text-xs"
-                      style={{ color: "hsl(var(--brand-accent))" }}
-                      onClick={() => handleGetDirections(location.address)}
+                      className="text-white hover:opacity-90"
+                      style={{ backgroundColor: "hsl(var(--brand-accent))" }}
                     >
-                      Get Directions{" "}
-                      <ClientIcon name="Navigation" className="h-3 w-3 ml-1" />
+                      Catering Inquiry
                     </Button>
                   </div>
-                </div>
-
-                {/* Phone */}
-                <div className="flex items-center gap-3">
-                  <ClientIcon
-                    name="Phone"
-                    className="h-4 w-4 text-muted-foreground flex-shrink-0"
-                  />
-                  <a
-                    href={`tel:${location.phone}`}
-                    className="text-sm hover:underline text-foreground hover:text-primary transition-colors"
-                  >
-                    {location.phone}
-                  </a>
-                </div>
-
-                {/* Hours */}
-                <div className="flex items-start gap-3">
-                  <ClientIcon
-                    name="Clock"
-                    className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0"
-                  />
-                  <div className="text-sm space-y-1 text-foreground">
-                    <div>Mon-Fri: {location.hours.weekdays}</div>
-                    <div>Saturday: {location.hours.saturday}</div>
-                    <div>Sunday: {location.hours.sunday}</div>
-                  </div>
-                </div>
-
-                {/* Features */}
-                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
-                  {location.features.map((feature) => (
-                    <Badge
-                      key={feature}
-                      variant="secondary"
-                      className="text-xs whitespace-nowrap flex-shrink-0"
-                    >
-                      {feature}
-                    </Badge>
-                  ))}
-                </div>
-
-                <Separator />
-
-                {/* Ordering Info */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      Delivery Radius:
-                    </span>
-                    <span className="font-medium text-foreground">
-                      {location.deliveryRadius}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      Pickup Available:
-                    </span>
-                    <span className="font-medium text-foreground">
-                      {location.pickupAvailable ? "Yes" : "No"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    className="flex-1 text-white hover:opacity-90"
-                    style={{ backgroundColor: "hsl(var(--brand-accent))" }}
-                    onClick={() => handleOrderFromLocation(location.id)}
-                    disabled={!location.orderingAvailable}
-                  >
-                    Order Now
-                    <ClientIcon name="ChevronRight" className="h-4 w-4 ml-1" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="hover:bg-accent hover:text-accent-foreground"
-                    onClick={() => handleGetDirections(location.address)}
-                  >
-                    <ClientIcon name="Navigation" className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Additional Info */}
-        <div className="mt-16 text-center">
-          <Card className="max-w-2xl mx-auto">
-            <CardContent className="pt-6">
-              <h3 className="text-xl font-semibold mb-4 text-foreground">
-                Want Xichuan Noodles in Your Neighborhood?
-              </h3>
-              <p className="text-muted-foreground mb-6">
-                We&apos;re expanding across NYC! Contact us if you&apos;d like
-                to see a Xichuan Noodles location near you or inquire about
-                catering services for your event.
-              </p>
-              <div className="flex gap-4 justify-center">
-                <Button variant="outline">Contact Us</Button>
-                <Button
-                  className="text-white hover:opacity-90"
-                  style={{ backgroundColor: "hsl(var(--brand-accent))" }}
-                >
-                  Catering Inquiry
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        )}
       </div>
 
       <XichuanFooter />

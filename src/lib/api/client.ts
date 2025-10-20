@@ -3,6 +3,7 @@ import type {
   CartItem,
   GetLocationViaSlugType,
   LocationAddressDTO,
+  MerchantApiResponse,
   MenuResponse,
   PaymentIntent,
   Product,
@@ -17,7 +18,15 @@ import { storefrontClient } from "@/lib/storefront-client";
 
 const http = storefrontClient.http;
 
-const buildMenuQuery = (orderDate?: string, orderTime?: string) => {
+type MenuQueryOptions = {
+  menuOnly?: boolean;
+};
+
+const buildMenuQuery = (
+  orderDate?: string,
+  orderTime?: string,
+  options: MenuQueryOptions = {},
+) => {
   const query: Record<string, string> = {};
 
   if (orderDate) {
@@ -28,6 +37,10 @@ const buildMenuQuery = (orderDate?: string, orderTime?: string) => {
     query.orderTime = orderTime;
   }
 
+  if (options.menuOnly) {
+    query.menuOnly = "true";
+  }
+
   return query;
 };
 
@@ -35,13 +48,18 @@ export async function fetchLocation(locationId: string): Promise<GetLocationViaS
   return storefrontClient.locations.getById(locationId);
 }
 
+export async function fetchMerchant(slug: string): Promise<MerchantApiResponse> {
+  return storefrontClient.merchant.getBySlug(slug);
+}
+
 export async function fetchMenuItems(
   locationId: string,
   orderDate?: string,
   orderTime?: string,
+  options?: MenuQueryOptions,
 ): Promise<MenuResponse> {
   return http.get<MenuResponse>(`/api/v1/locations/${locationId}/menus`, {
-    query: buildMenuQuery(orderDate, orderTime),
+    query: buildMenuQuery(orderDate, orderTime, options),
   });
 }
 

@@ -1,10 +1,12 @@
+import type { Product } from "@/lib/api/types";
+
 export interface MenuItem {
   id: string
   name: string
   description: string
   price: number
   image: string
-  category: "signature" | "noodles" | "dumplings" | "appetizers" | "beverages"
+  category: string
   spiceLevel: number // 0-4 scale
   isVegetarian?: boolean
   isVegan?: boolean
@@ -12,6 +14,7 @@ export interface MenuItem {
   isPopular?: boolean
   isSpicy?: boolean
   ingredients?: string[]
+  apiProduct?: Product
 }
 
 export interface ItemOptions {
