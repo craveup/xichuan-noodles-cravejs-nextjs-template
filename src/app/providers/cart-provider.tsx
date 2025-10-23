@@ -27,6 +27,8 @@ import {
   storageKeyForLocation,
 } from "@/lib/cart-storage";
 import { useCart as useCartResource } from "@/hooks/useCart";
+import { useOrderingSession } from "@/hooks/use-ordering-session";
+import { startOrderingSession } from "@/lib/api/ordering-session";
 
 type CartLineItem = LocalCartItem;
 
@@ -134,11 +136,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
     shouldFetch: usingApi,
   });
 
+  const {
+    cartId: sessionCartId,
+    isLoading: orderingSessionLoading,
+    error: orderingSessionError,
+  } = useOrderingSession(usingApi ? locationId : null);
+
   useEffect(() => {
     if (!usingApi) return;
     if (hookCartId === cartId) return;
     setCartId(hookCartId ?? null);
   }, [cartId, hookCartId, usingApi]);
+
+  useEffect(() => {
+    if (!usingApi) return;
+    if (!sessionCartId) return;
+    if (sessionCartId === cartId) return;
+    setCartId(sessionCartId);
+    setHookCartId(sessionCartId);
+  }, [cartId, sessionCartId, setHookCartId, usingApi]);
 
   useEffect(() => {
     if (!usingApi || !storageKey) return;
@@ -206,6 +222,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return cartId;
     }
 
+    if (sessionCartId) {
+      return sessionCartId;
+    }
+
     if (!locationId) {
       throw new Error("Location ID is required to create a cart.");
     }
@@ -217,13 +237,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     setIsMutating(true);
     try {
-      const response = await storefrontClient.orderingSessions.start(
-        locationId,
-        {
-          existingCartId: persistedId,
-          fulfillmentMethod: DEFAULT_FULFILLMENT_METHOD,
-        }
-      );
+      const response = await startOrderingSession(locationId, {
+        existingCartId: persistedId,
+        fulfillmentMethod: String(DEFAULT_FULFILLMENT_METHOD),
+      });
 
       const nextCartId = response.cartId || persistedId;
       if (!nextCartId) {
@@ -243,7 +260,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsMutating(false);
     }
-  }, [cartId, handleApiFailure, locationId, refreshCart, storageKey, usingApi]);
+  }, [
+    cartId,
+    handleApiFailure,
+    locationId,
+    refreshCart,
+    sessionCartId,
+    storageKey,
+    usingApi,
+  ]);
 
   const fallbackAddToCart = useCallback(
     (item: MenuItem & { options: ItemOptions }) => {
@@ -512,12 +537,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [apiCart, items, usingApi]);
 
   const awaitingInitialCart =
-    usingApi && cartQueryLoading && !apiCart && items.length === 0;
+    usingApi &&
+    (cartQueryLoading || orderingSessionLoading) &&
+    !apiCart &&
+    items.length === 0;
 
   const isCartWideMutation = isMutating && !busyItemId;
   const isLoading = awaitingInitialCart || isCartWideMutation;
 
-  const combinedError = error;
+  const sessionErrorMessage =
+    orderingSessionError && orderingSessionError.trim().length > 0
+      ? orderingSessionError
+      : null;
+
+  const combinedError = error ?? sessionErrorMessage;
 
   const openCart = useCallback(() => setIsCartOpen(true), []);
   const closeCart = useCallback(() => setIsCartOpen(false), []);
