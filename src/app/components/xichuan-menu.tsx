@@ -7,6 +7,7 @@ import { XichuanMenuItem } from "./xichuan-menu-item";
 import type { MenuItem } from "../types";
 import type { Product } from "@/lib/api/types";
 import { useMenuItems, useProducts } from "@/lib/api/hooks";
+import { useCart } from "../providers/cart-provider";
 
 type MenuCategoryGroup = {
   key: string;
@@ -42,13 +43,11 @@ const productToMenuItem = (
 });
 
 export function XichuanMenu() {
-  const locationId = process.env.NEXT_PUBLIC_LOCATION_ID;
-  if (!locationId) {
-    throw new Error("NEXT_PUBLIC_LOCATION_ID environment variable is required");
-  }
+  const { locationId, isResolvingLocation, locationError } = useCart();
+  const resolvedLocationId = locationId ?? "";
 
-  const menuQuery = useMenuItems(locationId);
-  const productsQuery = useProducts(locationId);
+  const menuQuery = useMenuItems(resolvedLocationId);
+  const productsQuery = useProducts(resolvedLocationId);
 
   const productMap = useMemo(() => {
     const map = new Map<string, Product>();
@@ -100,11 +99,16 @@ export function XichuanMenu() {
   }, [menuQuery.data, productMap]);
 
   const isFetchingApi =
+    isResolvingLocation ||
     menuQuery.isLoading ||
     productsQuery.isLoading ||
     menuQuery.isFetching ||
     productsQuery.isFetching;
   const categories = apiCategories;
+  const showLocationError =
+    !resolvedLocationId && !isResolvingLocation && Boolean(locationError);
+  const locationErrorMessage =
+    locationError ?? "Storefront location is currently unavailable.";
 
   const [selectedCategory, setSelectedCategory] = useState<string>(
     categories[0]?.key ?? ""
@@ -137,6 +141,10 @@ export function XichuanMenu() {
           <div className="text-center py-12">
             <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
             <p className="text-muted-foreground">Loading menu…</p>
+          </div>
+        ) : showLocationError ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">{locationErrorMessage}</p>
           </div>
         ) : categories.length === 0 ? (
           <div className="text-center py-12">

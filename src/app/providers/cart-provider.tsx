@@ -14,6 +14,8 @@ import type { StorefrontCart, CartItem as ApiCartItem } from "@/lib/api/types";
 import {
   deleteCart as deleteCartApi,
   fetchCart,
+  fetchLocation,
+  fetchMerchant,
   removeCartItem as removeCartItemApi,
   updateCartItemQuantity as updateCartItemQuantityApi,
 } from "@/lib/api/client";
@@ -51,13 +53,16 @@ interface CartContextType {
   isCartOpen: boolean;
   openCart: () => void;
   closeCart: () => void;
+  locationId: string | null;
+  organizationSlug: string | null;
+  isResolvingLocation: boolean;
+  locationError: string | null;
   usingApi: boolean;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-const LOCATION_ID = process.env.NEXT_PUBLIC_LOCATION_ID ?? "";
-const LOCAL_MODE = process.env.NEXT_PUBLIC_LOCAL_MODE === "true";
+const ORGANIZATION_SLUG = process.env.NEXT_PUBLIC_ORG_SLUG?.trim() ?? "";
 const DEFAULT_FALLBACK_IMAGE =
   "/images/xichuan-noodles/menu/biang_classic.webp";
 const NYC_TAX_RATE = 0.08875;
@@ -107,12 +112,104 @@ const mapApiItemToCartLine = (item: ApiCartItem): CartLineItem => {
 };
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const locationId = LOCATION_ID;
   const queryClient = useQueryClient();
 
-  const preferApi = !LOCAL_MODE && Boolean(locationId);
+  const organizationSlug = ORGANIZATION_SLUG || null;
+  const [locationId, setLocationId] = useState<string | null>(null);
+  const [isResolvingLocation, setIsResolvingLocation] = useState<boolean>(
+    () => Boolean(organizationSlug)
+  );
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!organizationSlug) {
+      if (locationId !== null) {
+        setLocationId(null);
+      }
+      setLocationError(null);
+      setIsResolvingLocation(false);
+      return;
+    }
+
+    if (locationId) {
+      setIsResolvingLocation(false);
+      setLocationError(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function resolveLocation() {
+      setIsResolvingLocation(true);
+      setLocationError(null);
+
+      let resolvedId: string | null = null;
+      let failure: unknown = null;
+
+      try {
+        const location = await fetchLocation(organizationSlug);
+        if (location?.id) {
+          resolvedId = location.id;
+        }
+      } catch (error) {
+        failure = error;
+      }
+
+      if (!resolvedId) {
+        try {
+          const merchant = await fetchMerchant(organizationSlug);
+          const candidate =
+            merchant.locations?.find((loc) => loc.isMainLocation) ??
+            merchant.locations?.[0];
+
+          if (candidate?.id) {
+            resolvedId = candidate.id;
+          } else if (!failure) {
+            failure = new Error("No active locations found for this merchant.");
+          }
+        } catch (error) {
+          failure = error;
+        }
+      }
+
+      if (cancelled) {
+        return;
+      }
+
+      if (resolvedId) {
+        setLocationId(resolvedId);
+        setLocationError(null);
+      } else if (failure) {
+        setLocationId(null);
+        setLocationError(toErrorMessage(failure));
+        console.error("[cart] failed to resolve location", failure);
+      } else {
+        setLocationId(null);
+        setLocationError("Unable to resolve location from configuration.");
+      }
+
+      setIsResolvingLocation(false);
+    }
+
+    void resolveLocation();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationSlug, locationId]);
+
+  const preferApi = Boolean(locationId) && !isResolvingLocation;
   const [apiEnabled, setApiEnabled] = useState(preferApi);
-  const usingApi = apiEnabled && Boolean(locationId);
+
+  useEffect(() => {
+    if (preferApi) {
+      setApiEnabled(true);
+    }
+  }, [preferApi]);
+
+  const usingApi = apiEnabled && Boolean(locationId) && !isResolvingLocation;
+  const resolvedOrganizationSlug =
+    organizationSlug && organizationSlug === locationId ? null : organizationSlug;
 
   const [cartId, setCartId] = useState<string | null>(null);
   const [localItems, setLocalItems] = useState<CartLineItem[]>([]);
@@ -132,7 +229,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     isLoading: cartQueryLoading,
     setCartIdState: setHookCartId,
   } = useCartResource({
-    locationId,
+    locationId: locationId ?? undefined,
     shouldFetch: usingApi,
   });
 
@@ -140,7 +237,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     cartId: sessionCartId,
     isLoading: orderingSessionLoading,
     error: orderingSessionError,
-  } = useOrderingSession(usingApi ? locationId : null);
+  } = useOrderingSession(usingApi && locationId ? locationId : null);
 
   useEffect(() => {
     if (!usingApi) return;
@@ -529,12 +626,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    if (!usingApi && items.length > 0) {
-      return "/checkout";
-    }
-
     return null;
-  }, [apiCart, items, usingApi]);
+  }, [apiCart]);
 
   const awaitingInitialCart =
     usingApi &&
@@ -543,7 +636,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     items.length === 0;
 
   const isCartWideMutation = isMutating && !busyItemId;
-  const isLoading = awaitingInitialCart || isCartWideMutation;
+  const isLoading = isResolvingLocation || awaitingInitialCart || isCartWideMutation;
 
   const sessionErrorMessage =
     orderingSessionError && orderingSessionError.trim().length > 0
@@ -576,6 +669,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       isCartOpen,
       openCart,
       closeCart,
+      locationId,
+      organizationSlug: resolvedOrganizationSlug,
+      isResolvingLocation,
+      locationError,
       usingApi,
     }),
     [
@@ -593,6 +690,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       checkoutUrl,
       busyItemId,
       removeItem,
+      locationId,
+      resolvedOrganizationSlug,
+      isResolvingLocation,
+      locationError,
       subtotal,
       tax,
       total,

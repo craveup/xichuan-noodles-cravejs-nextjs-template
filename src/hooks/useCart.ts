@@ -23,12 +23,10 @@ type MutateInput =
     ) => StorefrontCart | null | undefined)
   | Promise<StorefrontCart | null | undefined>;
 
-const DEFAULT_LOCATION_ID = process.env.NEXT_PUBLIC_LOCATION_ID ?? "";
-
 export function useCart(options: UseCartOptions = {}) {
   const queryClient = useQueryClient();
 
-  const locationId = options.locationId ?? DEFAULT_LOCATION_ID;
+  const locationId = options.locationId?.trim() ?? "";
 
   const [isHydrated, setIsHydrated] = useState(false);
   const [resolvedCartId, setResolvedCartId] = useState<string | null>(
@@ -157,4 +155,3 @@ export function useCart(options: UseCartOptions = {}) {
     setCartIdState: setResolvedCartId,
   };
 }
-

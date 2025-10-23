@@ -13,6 +13,7 @@ import { ClientIcon } from "../components/client-icon";
 import { useCart } from "../providers/cart-provider";
 import { fetchLocation, fetchMerchant } from "@/lib/api/client";
 import type { MerchantLocation } from "@/lib/api/types";
+import { toErrorMessage } from "@/lib/api/error-utils";
 
 interface Location {
   id: string;
@@ -38,8 +39,6 @@ interface Location {
   methodsStatus?: MerchantLocation["methodsStatus"];
 }
 
-const LOCAL_MODE = process.env.NEXT_PUBLIC_LOCAL_MODE === "true";
-const MERCHANT_SLUG = process.env.NEXT_PUBLIC_MERCHANT_SLUG ?? null;
 const FALLBACK_LOCATION_IMAGE = "/images/xichuan-noodles/locations/chinatown-storefront.webp";
 
 const fallbackLocations: Location[] = [
@@ -117,19 +116,28 @@ const fallbackLocations: Location[] = [
 ];
 
 export default function XichuanLocationsPage() {
-  const { isCartOpen, closeCart } = useCart();
-  const locationIdEnv = process.env.NEXT_PUBLIC_LOCATION_ID;
-  const preferApi = !LOCAL_MODE && Boolean(locationIdEnv);
+  const {
+    isCartOpen,
+    closeCart,
+    locationId,
+    organizationSlug,
+    isResolvingLocation,
+    locationError,
+  } = useCart();
+
+  const resolvedLocationId = locationId ?? "";
+  const resolvedSlug = organizationSlug ?? null;
+  const preferApi = Boolean(resolvedLocationId);
 
   const locationQuery = useQuery({
-    queryKey: ["location-meta", locationIdEnv],
-    queryFn: () => fetchLocation(locationIdEnv!),
-    enabled: preferApi && Boolean(locationIdEnv),
+    queryKey: ["location-meta", resolvedLocationId],
+    queryFn: () => fetchLocation(resolvedLocationId),
+    enabled: preferApi,
     staleTime: 60 * 60 * 1000,
   });
 
   const derivedSlug =
-    locationQuery.data?.restaurantSlug ?? MERCHANT_SLUG ?? null;
+    locationQuery.data?.restaurantSlug ?? resolvedSlug ?? null;
 
   const merchantQuery = useQuery({
     queryKey: ["merchant", derivedSlug],
@@ -188,7 +196,11 @@ export default function XichuanLocationsPage() {
   const displayLocations = usingApi ? merchantLocations : fallbackLocations;
   const loading =
     preferApi && (locationQuery.isLoading || merchantQuery.isLoading);
-  const apiError = preferApi ? locationQuery.error ?? merchantQuery.error : null;
+  const apiError = preferApi
+    ? locationError ??
+      (locationQuery.error ? toErrorMessage(locationQuery.error) : null) ??
+      (merchantQuery.error ? toErrorMessage(merchantQuery.error) : null)
+    : null;
 
   const locationCount = displayLocations.length;
   const ratings = displayLocations
@@ -241,10 +253,12 @@ export default function XichuanLocationsPage() {
           </div>
         )}
 
-        {!usingApi && preferApi && apiError && (
+        {apiError && (!usingApi || !preferApi) && (
           <div className="mb-8 flex justify-center">
             <div className="rounded-md border border-amber-400 bg-amber-100 px-4 py-2 text-sm text-amber-800">
-              Unable to reach the CraveUp API. Showing curated location details.
+              {preferApi
+                ? `Unable to reach the CraveUp API. Showing curated location details. (${apiError})`
+                : apiError}
             </div>
           </div>
         )}

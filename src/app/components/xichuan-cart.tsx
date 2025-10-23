@@ -66,7 +66,11 @@ export function XichuanCart({ isOpen, onClose }: XichuanCartProps) {
       return;
     }
 
-    const targetUrl = checkoutUrl?.trim() || "/checkout";
+    const targetUrl = checkoutUrl?.trim();
+    if (!targetUrl) {
+      return;
+    }
+
     if (/^https?:\/\//i.test(targetUrl)) {
       window.location.href = targetUrl;
       return;
@@ -283,7 +287,9 @@ export function XichuanCart({ isOpen, onClose }: XichuanCartProps) {
               className="w-full text-white dark:text-white"
               style={{ backgroundColor: "hsl(var(--brand-accent))" }}
               onClick={handleCheckout}
-              disabled={isLoading || !!busyItemId || items.length === 0}
+              disabled={
+                isLoading || !!busyItemId || items.length === 0 || !checkoutUrl
+              }
             >
               <ClientIcon name="CreditCard" className="h-4 w-4" />
               Proceed to Checkout
