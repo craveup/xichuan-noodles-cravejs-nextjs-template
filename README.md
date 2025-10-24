@@ -15,6 +15,7 @@ Environment
 - `NEXT_PUBLIC_CRAVEUP_API_KEY` — Storefront API key (required).
 - `NEXT_PUBLIC_ORG_SLUG` — merchant slug whose locations should be listed.
 - `NEXT_PUBLIC_API_URL` — optional override for the Storefront API base.
+- `NEXT_PUBLIC_STOREFRONT_URL` — optional canonical URL used in metadata.
 - `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` — required for delivery address autocomplete/map embeds.
 - Leave `NEXT_PUBLIC_DEFAULT_LOCATION_ID` unset to keep the landing page showing the location grid. (Set it only if you want to adopt single-location behaviour.)
 
@@ -43,3 +44,4 @@ Extending
 - Customise themes via `src/styles/globals.css` or by adding primitives to `components/ui`.
 - Feature work should follow the existing folder conventions (`hooks`, `lib/api`, `types`).
 - Update documentation when adding pages or changing environment variables.
+
