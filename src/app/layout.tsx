@@ -1,43 +1,47 @@
-import type { Metadata, Viewport } from "next";
-import {Figtree} from "next/font/google";
-import "@/styles/globals.css";
-import { Toaster } from "@/components/ui/sonner";
-import { ThemeProvider } from "@/components/theme/ThemeProvider";
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
 
-const figtree = Figtree({ subsets: ["latin"] });
+// Providers & Components
+import { CartProvider } from "./providers/cart-provider";
+import { RestaurantThemeProvider } from "@/hooks/use-restaurant-theme";
+import { ErrorBoundary } from "./components/error-boundary";
+import { XichuanQueryClientProvider } from "./providers/query-client-provider";
 
+// Load Google Fonts
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+// Page Metadata
 export const metadata: Metadata = {
-  title: {
-    default: "Crave",
-    template: "%s",
-  },
-  description: "Browse and order from Crave locations.",
-  icons: {
-    icon: "/cravelogo.png",
-    shortcut: "/cravelogo.png",
-    apple: "/cravelogo.png",
-  },
-};
-
-export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "cyan" },
-    { media: "(prefers-color-scheme: dark)", color: "black" },
-  ],
+  title: "Xichuan Noodles - Authentic Xi'an Hand-Pulled Noodles",
+  description: "Experience authentic Xi'an cuisine with hand-pulled Biang Biang noodles, spicy beef dishes, and traditional Chinese dumplings. Order online for delivery or pickup.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang='en' suppressHydrationWarning>
-      <body className={figtree.className}>
-        <ThemeProvider>
-          {children}
-          <Toaster />
-        </ThemeProvider>
+    <html lang="en">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        <ErrorBoundary>
+          <XichuanQueryClientProvider>
+            <RestaurantThemeProvider defaultThemePath="/themes/leclerc-theme.json">
+              <CartProvider>{children}</CartProvider>
+            </RestaurantThemeProvider>
+          </XichuanQueryClientProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );
