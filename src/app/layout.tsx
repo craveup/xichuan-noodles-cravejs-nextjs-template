@@ -25,6 +25,23 @@ export const metadata: Metadata = {
   description: "Experience authentic Xi'an cuisine with hand-pulled Biang Biang noodles, spicy beef dishes, and traditional Chinese dumplings. Order online for delivery or pickup.",
 };
 
+const themeInitializerScript = `
+(function() {
+  try {
+    var storageKey = 'restaurant-theme-dark-mode';
+    var storedPreference = localStorage.getItem(storageKey);
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (storedPreference === 'true' || (storedPreference === null && prefersDark)) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  } catch (error) {
+    // no-op: fall back to default theme
+  }
+})();
+`;
+
 export default function RootLayout({
   children,
 }: {
@@ -35,6 +52,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <script
+          dangerouslySetInnerHTML={{ __html: themeInitializerScript }}
+        />
         <ErrorBoundary>
           <XichuanQueryClientProvider>
             <RestaurantThemeProvider defaultThemePath="/themes/leclerc-theme.json">

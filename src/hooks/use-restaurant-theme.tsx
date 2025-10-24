@@ -15,6 +15,13 @@ import {
 } from "react";
 import { ThemeEngine, RestaurantTheme } from "@/lib/theme-engine";
 
+const DARK_MODE_STORAGE_KEY = "restaurant-theme-dark-mode";
+
+const syncDocumentDarkClass = (isDark: boolean) => {
+  if (typeof document === "undefined") return;
+  document.documentElement.classList.toggle("dark", isDark);
+};
+
 interface ThemeContextType {
   theme: RestaurantTheme | null;
   themeEngine: ThemeEngine | null;
@@ -69,13 +76,13 @@ export function RestaurantThemeProvider({
   const handleSetDarkMode = useCallback(
     (isDark: boolean) => {
       setIsDarkMode(isDark);
-      if (themeEngine) {
-        themeEngine.setDarkMode(isDark);
-      }
-
       // Persist preference
       if (typeof window !== "undefined") {
-        localStorage.setItem("restaurant-theme-dark-mode", isDark.toString());
+        localStorage.setItem(DARK_MODE_STORAGE_KEY, isDark.toString());
+      }
+
+      if (!themeEngine) {
+        syncDocumentDarkClass(isDark);
       }
     },
     [themeEngine]
@@ -101,15 +108,18 @@ export function RestaurantThemeProvider({
   // Auto-detect dark mode preference
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const savedDarkMode = localStorage.getItem("restaurant-theme-dark-mode");
+      const savedDarkMode = localStorage.getItem(DARK_MODE_STORAGE_KEY);
       if (savedDarkMode !== null) {
-        setIsDarkMode(savedDarkMode === "true");
+        const isDark = savedDarkMode === "true";
+        setIsDarkMode(isDark);
+        syncDocumentDarkClass(isDark);
       } else {
         // Check system preference
         const prefersDark = window.matchMedia(
           "(prefers-color-scheme: dark)"
         ).matches;
         setIsDarkMode(prefersDark);
+        syncDocumentDarkClass(prefersDark);
       }
     }
   }, []);
@@ -125,6 +135,8 @@ export function RestaurantThemeProvider({
   useEffect(() => {
     if (themeEngine) {
       themeEngine.setDarkMode(isDarkMode);
+    } else {
+      syncDocumentDarkClass(isDarkMode);
     }
   }, [isDarkMode, themeEngine]);
 

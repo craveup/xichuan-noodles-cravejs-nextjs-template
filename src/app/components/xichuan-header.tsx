@@ -1,7 +1,7 @@
 "use client";
 
 import { useCart } from "../providers/cart-provider";
-import { useThemeClasses } from "@/hooks/use-restaurant-theme";
+import { useThemeClasses, useRestaurantTheme } from "@/hooks/use-restaurant-theme";
 import { ClientIcon } from "./client-icon";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,11 @@ interface XichuanHeaderProps {
 export function XichuanHeader({ onCartClick }: XichuanHeaderProps) {
   const { itemCount, openCart } = useCart();
   const { getThemeClass } = useThemeClasses();
+  const { isDarkMode, setDarkMode } = useRestaurantTheme();
+
+  const themeToggleLabel = isDarkMode
+    ? "Switch to light mode"
+    : "Switch to dark mode";
 
   return (
     <header className="sticky top-0 z-50 bg-background border-b backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -67,7 +72,21 @@ export function XichuanHeader({ onCartClick }: XichuanHeaderProps) {
           </nav>
 
           {/* Cart and Actions */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDarkMode(!isDarkMode)}
+              aria-label={themeToggleLabel}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <ClientIcon
+                name={isDarkMode ? "Sun" : "Moon"}
+                className="h-4 w-4"
+                aria-hidden="true"
+              />
+              <span className="sr-only">{themeToggleLabel}</span>
+            </Button>
             <Button
               variant="outline"
               size="sm"
