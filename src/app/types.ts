@@ -29,16 +29,3 @@ export interface CartItem extends MenuItem {
   quantity: number
   options: ItemOptions
 }
-
-export interface DeliveryData {
-  type: "delivery" | "pickup" | "dine-in"
-  address?: {
-    street: string
-    apt?: string
-    city: string
-    state: string
-    zip: string
-  }
-  instructions?: string
-  time?: string
-}

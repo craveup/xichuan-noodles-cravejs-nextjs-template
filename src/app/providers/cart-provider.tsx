@@ -68,6 +68,22 @@ const DEFAULT_FALLBACK_IMAGE =
 const NYC_TAX_RATE = 0.08875;
 const DEFAULT_FULFILLMENT_METHOD = FulfilmentMethods.TAKEOUT;
 
+const resolveProductImage = (item: ApiCartItem) => {
+  const product = (item as { product?: { imageUrl?: string; image?: string } })
+    .product;
+  if (
+    product &&
+    typeof product.imageUrl === "string" &&
+    product.imageUrl.trim().length > 0
+  ) {
+    return product.imageUrl;
+  }
+  if (product && typeof product.image === "string" && product.image.trim()) {
+    return product.image;
+  }
+  return undefined;
+};
+
 const parseAmount = (value?: string) => (value ? Number.parseFloat(value) : 0);
 
 const buildSpecialInstructions = (options: ItemOptions | undefined) => {
@@ -99,7 +115,10 @@ const mapApiItemToCartLine = (item: ApiCartItem): CartLineItem => {
     name: item.name,
     description: item.description,
     price: resolvedPrice,
-    image: item.imageUrl || item.product?.imageUrl || DEFAULT_FALLBACK_IMAGE,
+    image:
+      item.imageUrl ||
+      resolveProductImage(item) ||
+      DEFAULT_FALLBACK_IMAGE,
     category: "signature",
     spiceLevel: 0,
     quantity: item.quantity,
@@ -131,6 +150,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const slug = organizationSlug;
+
     if (locationId) {
       setIsResolvingLocation(false);
       setLocationError(null);
@@ -147,7 +168,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       let failure: unknown = null;
 
       try {
-        const location = await fetchLocation(organizationSlug);
+        const location = await fetchLocation(slug);
         if (location?.id) {
           resolvedId = location.id;
         }
@@ -157,10 +178,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       if (!resolvedId) {
         try {
-          const merchant = await fetchMerchant(organizationSlug);
+          const merchant = await fetchMerchant(slug);
           const candidate =
-            merchant.locations?.find((loc) => loc.isMainLocation) ??
-            merchant.locations?.[0];
+            merchant.locations?.find(
+              (loc) =>
+                Boolean(
+                  (loc as { isMainLocation?: boolean }).isMainLocation
+                )
+            ) ?? merchant.locations?.[0];
 
           if (candidate?.id) {
             resolvedId = candidate.id;
@@ -411,13 +436,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      const activeLocationId = locationId;
+      if (!activeLocationId) {
+        fallbackAddToCart(item);
+        setIsCartOpen(true);
+        return;
+      }
+
       setIsMutating(true);
       try {
         const payloadSpecialInstructions = buildSpecialInstructions(
           item.options
         );
         const response = await storefrontClient.cart.addItem(
-          locationId,
+          activeLocationId,
           targetCartId,
           {
             productId: item.apiProduct?.id ?? item.id,
@@ -429,7 +461,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         );
 
         const updatedCart =
-          response.cart ?? (await fetchCart(locationId, targetCartId));
+          response.cart ?? (await fetchCart(activeLocationId, targetCartId));
 
         refreshCart(updatedCart);
         setApiEnabled(true);
@@ -458,7 +490,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setError(null);
       setBusyItemId(cartItemId);
 
-      if (!usingApi || !cartId) {
+      if (!usingApi || !cartId || !locationId) {
         setLocalItems((prev) =>
           prev.filter((item) => item.cartId !== cartItemId)
         );
@@ -466,11 +498,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      const activeLocationId = locationId;
+      const activeCartId = cartId;
+
       setIsMutating(true);
       try {
         const updatedCart = await removeCartItemApi(
-          locationId,
-          cartId,
+          activeLocationId,
+          activeCartId,
           cartItemId
         );
         refreshCart(updatedCart);
@@ -495,7 +530,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (!usingApi || !cartId) {
+      if (!usingApi || !cartId || !locationId) {
         setLocalItems((prev) =>
           prev.map((item) =>
             item.cartId === cartItemId ? { ...item, quantity } : item
@@ -505,11 +540,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      const activeLocationId = locationId;
+      const activeCartId = cartId;
+
       setIsMutating(true);
       try {
         const updatedCart = await updateCartItemQuantityApi(
-          locationId,
-          cartId,
+          activeLocationId,
+          activeCartId,
           cartItemId,
           quantity
         );
@@ -528,14 +566,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setError(null);
     setBusyItemId(null);
 
-    if (!usingApi || !cartId) {
+    if (!usingApi || !cartId || !locationId) {
       setLocalItems([]);
       return;
     }
 
+    const activeLocationId = locationId;
+    const activeCartId = cartId;
+
     setIsMutating(true);
     try {
-      await deleteCartApi(locationId, cartId);
+      await deleteCartApi(activeLocationId, activeCartId);
       refreshCart(null);
       setLocalItems([]);
     } catch (err) {
@@ -618,7 +659,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [apiCart, fallbackTotal, usingApi]);
 
   const checkoutUrl = useMemo(() => {
-    const raw = apiCart?.checkoutUrl;
+    const raw =
+      apiCart && typeof apiCart === "object" && "checkoutUrl" in apiCart
+        ? (apiCart as { checkoutUrl?: string }).checkoutUrl
+        : undefined;
     if (typeof raw === "string") {
       const trimmed = raw.trim();
       if (trimmed.length > 0) {

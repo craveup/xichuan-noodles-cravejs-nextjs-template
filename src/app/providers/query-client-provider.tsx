@@ -17,7 +17,6 @@ export function XichuanQueryClientProvider({ children }: QueryClientProviderProp
       new QueryClient({
         defaultOptions: {
           queries: {
-            suspense: false,
             refetchOnWindowFocus: false,
             retry: 1,
           },
@@ -27,4 +26,3 @@ export function XichuanQueryClientProvider({ children }: QueryClientProviderProp
 
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
-

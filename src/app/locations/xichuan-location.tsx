@@ -39,7 +39,8 @@ interface Location {
   methodsStatus?: MerchantLocation["methodsStatus"];
 }
 
-const FALLBACK_LOCATION_IMAGE = "/images/xichuan-noodles/locations/chinatown-storefront.webp";
+const FALLBACK_LOCATION_IMAGE =
+  "https://images.unsplash.com/photo-1529007196863-d07650a3f0ea?q=80&w=1200&auto=format&fit=crop";
 
 const fallbackLocations: Location[] = [
   {
@@ -63,7 +64,7 @@ const fallbackLocations: Location[] = [
       "Authentic Xi&apos;an Cuisine",
       "Late Night",
     ],
-    image: "/images/xichuan-noodles/locations/chinatown-storefront.webp",
+    image: FALLBACK_LOCATION_IMAGE,
     isMainLocation: true,
     orderingAvailable: true,
     deliveryRadius: "3 miles",
@@ -83,7 +84,7 @@ const fallbackLocations: Location[] = [
     rating: 4.8,
     reviewCount: 423,
     features: ["Dine In", "Takeout", "Delivery", "Family Style", "Parking"],
-    image: "/images/xichuan-noodles/locations/flushing-storefront.webp",
+    image: FALLBACK_LOCATION_IMAGE,
     orderingAvailable: true,
     deliveryRadius: "2.5 miles",
     pickupAvailable: true,
@@ -108,7 +109,7 @@ const fallbackLocations: Location[] = [
       "Student Discount",
       "Quick Service",
     ],
-    image: "/images/xichuan-noodles/locations/east-village-storefront.webp",
+    image: FALLBACK_LOCATION_IMAGE,
     orderingAvailable: true,
     deliveryRadius: "2 miles",
     pickupAvailable: true,

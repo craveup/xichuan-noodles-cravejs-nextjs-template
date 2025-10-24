@@ -75,19 +75,21 @@ export function XichuanMenu() {
           Array.isArray((category as { productIds?: string[] }).productIds) &&
           (category as { productIds?: string[] }).productIds!.length > 0;
 
-        const resolvedProducts: Array<Product | undefined> = byProductIds
-          ? (category as { productIds: string[] }).productIds.map((productId) =>
-              productMap.get(productId)
-            )
-          : Array.isArray((category as { products?: Product[] }).products)
-          ? (category as { products?: Product[] }).products
-          : [];
+        let resolvedProducts: Product[] = [];
 
-        const items = resolvedProducts
-          .filter(Boolean)
-          .map((product) =>
-            productToMenuItem(product as Product, category.name)
-          );
+        if (byProductIds) {
+          resolvedProducts = (category as { productIds: string[] }).productIds
+            .map((productId) => productMap.get(productId))
+            .filter((product): product is Product => Boolean(product));
+        } else if (
+          Array.isArray((category as { products?: Product[] }).products)
+        ) {
+          resolvedProducts = (category as { products?: Product[] }).products!;
+        }
+
+        const items = resolvedProducts.map((product) =>
+          productToMenuItem(product, category.name)
+        );
 
         return {
           key: category.id || category.name,
