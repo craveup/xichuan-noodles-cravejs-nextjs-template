@@ -74,23 +74,18 @@ export function useOrderingSession(
 
     let cancelled = false;
 
-    async function init() {
-      if (cartId) {
-        setIsLoading(false);
-        return;
-      }
-
+    const initializeSession = async () => {
       setIsLoading(true);
       setError("");
       setOrderingError("");
 
-      const existingCartId =
-        getStoredCartId(normalizedLocationId) || undefined;
+      const storedCartId =
+        getStoredCartId(normalizedLocationId) ?? undefined;
       const returnUrl =
         typeof window !== "undefined" ? window.location.origin : undefined;
 
       const payload: OrderingSessionPayload = {
-        existingCartId,
+        existingCartId: storedCartId,
         fulfillmentMethod,
       };
 
@@ -104,31 +99,34 @@ export function useOrderingSession(
           payload,
         );
 
-        if (cancelled) return;
-
-        const nextCartId = newCartId ?? existingCartId ?? null;
-        if (nextCartId) {
-          setStoredCartId(normalizedLocationId, nextCartId);
-          setCartIdState(nextCartId);
+        if (cancelled) {
+          return;
         }
 
+        const resolvedCartId = newCartId ?? storedCartId ?? null;
+        if (resolvedCartId) {
+          setStoredCartId(normalizedLocationId, resolvedCartId);
+        }
+        setCartIdState(resolvedCartId);
         setOrderingError(errorMessage ?? "");
       } catch (err) {
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
         setError(toErrorMessage(err));
       } finally {
         if (!cancelled) {
           setIsLoading(false);
         }
       }
-    }
+    };
 
-    init();
+    void initializeSession();
 
     return () => {
       cancelled = true;
     };
-  }, [cartId, fulfillmentMethod, normalizedLocationId]);
+  }, [fulfillmentMethod, normalizedLocationId]);
 
   return { cartId, isLoading, error, orderingError };
 }
