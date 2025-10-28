@@ -24,15 +24,9 @@ const syncDocumentDarkClass = (isDark: boolean) => {
 
 interface ThemeContextType {
   theme: RestaurantTheme | null;
-  themeEngine: ThemeEngine | null;
-  isLoading: boolean;
-  error: string | null;
   isDarkMode: boolean;
   loadTheme: (themePath: string) => Promise<void>;
   setDarkMode: (isDark: boolean) => void;
-  applySeasonalTheme: (season: "winter" | "spring" | "summer" | "fall") => void;
-  exportThemeCSS: () => string | null;
-  getThemeInfo: () => Partial<RestaurantTheme> | null;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -46,14 +40,9 @@ export function RestaurantThemeProvider({
 }) {
   const [theme, setTheme] = useState<RestaurantTheme | null>(null);
   const [themeEngine, setThemeEngine] = useState<ThemeEngine | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   const loadTheme = useCallback(async (themePath: string) => {
-    setIsLoading(true);
-    setError(null);
-
     try {
       const loadedTheme = await ThemeEngine.loadTheme(themePath);
       const engine = new ThemeEngine(loadedTheme);
@@ -66,10 +55,7 @@ export function RestaurantThemeProvider({
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to load theme";
-      setError(errorMessage);
       console.error("❌ Theme loading failed:", errorMessage);
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 
@@ -87,23 +73,6 @@ export function RestaurantThemeProvider({
     },
     [themeEngine]
   );
-
-  const applySeasonalTheme = useCallback(
-    (season: "winter" | "spring" | "summer" | "fall") => {
-      if (themeEngine) {
-        themeEngine.applySeasonalTheme(season);
-      }
-    },
-    [themeEngine]
-  );
-
-  const exportThemeCSS = useCallback(() => {
-    return themeEngine ? themeEngine.exportCSS() : null;
-  }, [themeEngine]);
-
-  const getThemeInfo = useCallback(() => {
-    return themeEngine ? themeEngine.getThemeInfo() : null;
-  }, [themeEngine]);
 
   // Auto-detect dark mode preference
   useEffect(() => {
@@ -142,15 +111,9 @@ export function RestaurantThemeProvider({
 
   const value: ThemeContextType = {
     theme,
-    themeEngine,
-    isLoading,
-    error,
     isDarkMode,
     loadTheme,
     setDarkMode: handleSetDarkMode,
-    applySeasonalTheme,
-    exportThemeCSS,
-    getThemeInfo,
   };
 
   return (
@@ -213,87 +176,5 @@ export function useThemeClasses() {
     isDark: isDarkMode,
     getThemeClass,
     getThemeCSS,
-    themeInfo: theme,
-  };
-}
-
-/**
- * Hook for theme-aware animations
- */
-export function useThemeAnimations() {
-  const { theme } = useRestaurantTheme();
-
-  const getAnimation = useCallback(
-    (name: string) => {
-      return theme?.animations.effects[name] || null;
-    },
-    [theme]
-  );
-
-  const getDuration = useCallback(
-    (speed: "fast" | "normal" | "slow") => {
-      return theme?.animations.duration[speed] || "200ms";
-    },
-    [theme]
-  );
-
-  const getEasing = useCallback(
-    (type: "default" | "in" | "out") => {
-      return theme?.animations.easing[type] || "ease";
-    },
-    [theme]
-  );
-
-  return {
-    getAnimation,
-    getDuration,
-    getEasing,
-  };
-}
-
-/**
- * Hook for seasonal theme management
- */
-export function useSeasonalTheme() {
-  const { applySeasonalTheme, theme } = useRestaurantTheme();
-  const [currentSeason, setCurrentSeason] = useState<
-    "winter" | "spring" | "summer" | "fall"
-  >("spring");
-
-  const autoDetectSeason = useCallback(() => {
-    const month = new Date().getMonth();
-    let season: "winter" | "spring" | "summer" | "fall";
-
-    if (month >= 2 && month <= 4) season = "spring";
-    else if (month >= 5 && month <= 7) season = "summer";
-    else if (month >= 8 && month <= 10) season = "fall";
-    else season = "winter";
-
-    setCurrentSeason(season);
-    applySeasonalTheme(season);
-
-    return season;
-  }, [applySeasonalTheme]);
-
-  const changeSeason = useCallback(
-    (season: "winter" | "spring" | "summer" | "fall") => {
-      setCurrentSeason(season);
-      applySeasonalTheme(season);
-    },
-    [applySeasonalTheme]
-  );
-
-  const hasSeasonalSupport = Boolean(
-    theme?.clientSpecific?.seasonalAdjustments
-  );
-
-  return {
-    currentSeason,
-    changeSeason,
-    autoDetectSeason,
-    hasSeasonalSupport,
-    availableSeasons: hasSeasonalSupport
-      ? Object.keys(theme!.clientSpecific!.seasonalAdjustments!)
-      : [],
   };
 }
