@@ -88,7 +88,9 @@ export function XichuanCart({ isOpen, onClose }: XichuanCartProps) {
     <Sheet open={isOpen} onOpenChange={handleSheetOpenChange}>
       <SheetContent className="w-full sm:max-w-lg flex flex-col">
         <SheetHeader>
-          <SheetTitle>Your Order ({itemCount} {orderItemLabel})</SheetTitle>
+          <SheetTitle>
+            Your Order ({itemCount} {orderItemLabel})
+          </SheetTitle>
         </SheetHeader>
 
         {usingApi && (
@@ -124,14 +126,22 @@ export function XichuanCart({ isOpen, onClose }: XichuanCartProps) {
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {showLoadingState ? (
             <div className="flex h-full items-center justify-center rounded-md border border-dashed border-muted-foreground/30 bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
-              <ClientIcon name="Loader2" className="mr-2 h-4 w-4 animate-spin" />
+              <ClientIcon
+                name="Loader2"
+                className="mr-2 h-4 w-4 animate-spin"
+              />
               Updating your cart...
             </div>
           ) : isCartEmpty ? (
             <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
-              <ClientIcon name="ChefHat" className="h-16 w-16 text-muted-foreground" />
+              <ClientIcon
+                name="ChefHat"
+                className="h-16 w-16 text-muted-foreground"
+              />
               <div>
-                <h3 className="text-lg font-semibold mb-1">Your cart is empty</h3>
+                <h3 className="text-lg font-semibold mb-1">
+                  Your cart is empty
+                </h3>
                 <p className="text-muted-foreground text-sm">
                   Add some delicious Xi&apos;an noodles to get started!
                 </p>
@@ -174,8 +184,11 @@ export function XichuanCart({ isOpen, onClose }: XichuanCartProps) {
                           </div>
                         )}
                         {item.specialInstructions && (
-                          <div className="text-xs italic text-muted-foreground">
-                            Notes: {item.specialInstructions}
+                          <div className="text-xs italic text-muted-foreground wrap-break-word line-clamp-2">
+                            <span className="not-italic font-medium text-muted-foreground">
+                              Special Inst:
+                            </span>{" "}
+                            {item.specialInstructions}
                           </div>
                         )}
                       </div>
@@ -192,7 +205,10 @@ export function XichuanCart({ isOpen, onClose }: XichuanCartProps) {
                             onClick={() =>
                               item.quantity === 1
                                 ? handleRemoveItem(cartItemId)
-                                : handleQuantityChange(cartItemId, item.quantity - 1)
+                                : handleQuantityChange(
+                                    cartItemId,
+                                    item.quantity - 1
+                                  )
                             }
                             className="h-8 w-8 p-0"
                             disabled={isLoading || busyItemId === cartItemId}
@@ -210,7 +226,9 @@ export function XichuanCart({ isOpen, onClose }: XichuanCartProps) {
                                 className="h-4 w-4 animate-spin"
                               />
                             ) : (
-                              <span className="font-medium">{item.quantity}</span>
+                              <span className="font-medium">
+                                {item.quantity}
+                              </span>
                             )}
                           </div>
 
@@ -218,14 +236,16 @@ export function XichuanCart({ isOpen, onClose }: XichuanCartProps) {
                             variant="outline"
                             size="sm"
                             onClick={() =>
-                              handleQuantityChange(cartItemId, item.quantity + 1)
+                              handleQuantityChange(
+                                cartItemId,
+                                item.quantity + 1
+                              )
                             }
                             className="h-8 w-8 p-0"
                             disabled={isLoading || busyItemId === cartItemId}
                           >
                             <ClientIcon name="Plus" className="h-3 w-3" />
                           </Button>
-
                         </div>
                       </div>
                     </div>

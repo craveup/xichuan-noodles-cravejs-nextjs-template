@@ -9,7 +9,7 @@ import type {
 } from "@/lib/api/types";
 import { ItemUnavailableActions } from "@craveup/storefront-sdk";
 import { Button } from "@/components/ui/button";
-import { Loader2, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import ModifierGroup from "./ModifierGroup";
 import ItemCounterButton from "./ItemCounterButton";
 import ItemUnavailableAction from "./ItemUnavailableAction";
