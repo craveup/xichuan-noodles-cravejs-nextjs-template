@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { MouseEvent } from "react";
 import { Plus, Loader2, Flame } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -55,19 +56,39 @@ export function XichuanMenuItem({
     await onQuickAdd(product);
   };
 
+  const displayPrice =
+    product?.displayPrice ??
+    (typeof product?.price === "string" ? product.price : null);
+
+  const numericPrice =
+    typeof product?.price === "number"
+      ? product.price
+      : typeof product?.price === "string"
+      ? Number.parseFloat(product.price)
+      : item.price;
+
+  const priceLabel =
+    displayPrice ??
+    `$${
+      Number.isFinite(numericPrice)
+        ? numericPrice.toFixed(2)
+        : item.price.toFixed(2)
+    }`;
+
   return (
     <Card
-      className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+      className="flex h-full flex-col overflow-hidden transition-shadow hover:shadow-lg cursor-pointer"
       onClick={product ? handleCardClick : undefined}
       role="article"
       aria-labelledby={`item-${item.id}-name`}
     >
-      <div className="relative aspect-square">
-        <img
+      <div className="relative h-72 w-full bg-muted">
+        <Image
           src={item.image}
           alt={item.name}
-          className="w-full h-full object-cover"
-          loading="lazy"
+          fill
+          className="object-cover"
+          sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
         />
         {item.isSignature && (
           <Badge
@@ -87,34 +108,33 @@ export function XichuanMenuItem({
         )}
       </div>
 
-      <CardContent className="p-6 space-y-4">
-        <div>
+      <CardContent className="flex flex-1 flex-col p-6">
+        <div className="space-y-3">
           <h3
             id={`item-${item.id}-name`}
-            className="text-xl font-semibold text-foreground mb-1"
+            className="text-xl font-semibold text-foreground"
           >
             {item.name}
           </h3>
-          <p className="text-sm text-muted-foreground line-clamp-3">
+          <p className="text-sm text-muted-foreground line-clamp-3 min-h-15">
             {item.description}
           </p>
+          {item.spiceLevel > 0 && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Flame className="h-4 w-4 text-red-500" />
+              <span className={SPICE_COLORS[item.spiceLevel] ?? ""}>
+                {SPICE_LABELS[item.spiceLevel] ?? "Spicy"}
+              </span>
+            </div>
+          )}
         </div>
 
-        {item.spiceLevel > 0 && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Flame className="h-4 w-4 text-red-500" />
-            <span className={SPICE_COLORS[item.spiceLevel] ?? ""}>
-              {SPICE_LABELS[item.spiceLevel] ?? "Spicy"}
-            </span>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between">
+        <div className="mt-auto flex items-center justify-between pt-6">
           <span
             className="text-2xl font-bold"
             style={{ color: "hsl(var(--brand-accent))" }}
           >
-            ${item.price.toFixed(2)}
+            {priceLabel}
           </span>
 
           <Button
@@ -133,7 +153,7 @@ export function XichuanMenuItem({
         </div>
 
         {hasModifiers && (
-          <p className="text-xs text-muted-foreground">
+          <p className="mt-3 text-xs text-muted-foreground">
             Customizable · Tap to choose options
           </p>
         )}
