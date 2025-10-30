@@ -16,6 +16,7 @@ import ItemUnavailableAction from "./ItemUnavailableAction";
 import SpecialInstructions from "./SpecialInstructions";
 import { useCart } from "../../providers/cart-provider";
 import { cn } from "@/lib/utils";
+import { formatMoney, Currencies } from "@/lib/currency";
 
 interface ProductDescriptionProps {
   product: ProductDescriptionType;
@@ -77,7 +78,29 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
   );
 
   const productImage = product.images?.[0] ?? imagePlaceholder;
-  const priceLabel = product.displayPrice ?? product.price ?? "";
+  const priceLabel = (() => {
+    const raw = product.displayPrice ?? product.price ?? "";
+    if (typeof raw === "string") {
+      const trimmed = raw.trim();
+      if (trimmed.length === 0) {
+        return "";
+      }
+      if (!trimmed.includes(" ") && !trimmed.includes("-")) {
+        const formatted = formatMoney(trimmed, Currencies.USD);
+        if (formatted.trim().length > 0) {
+          return formatted;
+        }
+      }
+      return trimmed;
+    }
+
+    const formattedNumeric = formatMoney(raw, Currencies.USD);
+    if (formattedNumeric.trim().length > 0) {
+      return formattedNumeric;
+    }
+
+    return "";
+  })();
 
   const validateGroup = (groupId: string): boolean => {
     const group = modifierLookup.get(groupId);
@@ -151,70 +174,69 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="relative aspect-4/3 w-full">
-        <Image
-          src={productImage}
-          alt={product.name}
-          fill
-          className="object-cover"
-          placeholder="blur"
-          blurDataURL={imagePlaceholder}
-          sizes="(max-width: 768px) 100vw, 600px"
-        />
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute top-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white"
-          aria-label="Close"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-semibold text-foreground">
-            {product.name}
-          </h2>
-          <p className="text-sm text-muted-foreground">{priceLabel}</p>
-          {product.description && (
-            <p className="text-sm text-muted-foreground">
-              {product.description}
-            </p>
-          )}
+      <div
+        className="flex-1 overflow-y-auto scrollbar-hide"
+        id="product-description-section"
+      >
+        <div className="relative aspect-4/3 w-full">
+          <Image
+            src={productImage}
+            alt={product.name}
+            fill
+            className="object-cover"
+            placeholder="blur"
+            blurDataURL={imagePlaceholder}
+            sizes="(max-width: 768px) 100vw, 600px"
+          />
         </div>
 
-        <ModifierGroup
-          modifiers={product.modifiers ?? []}
-          selections={selections}
-          setSelections={setSelections}
-          disabled={isSubmitting}
-          errorModifierGroupId={errorGroupId ?? undefined}
-          onGroupInteract={(groupId) => {
-            if (groupId === errorGroupId) {
-              setErrorGroupId(null);
-              setErrorMessage(null);
-            }
-          }}
-        />
-
-        <ItemUnavailableAction
-          itemUnavailableAction={itemUnavailableAction}
-          setItemUnavailableAction={setItemUnavailableAction}
-          disabled={isSubmitting}
-        />
-
-        <SpecialInstructions
-          specialInstructions={specialInstructions}
-          setSpecialInstructions={setSpecialInstructions}
-          disabled={isSubmitting}
-        />
-
-        {errorMessage && (
-          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {errorMessage}
+        <div className="px-4 py-6 space-y-6">
+          <div className="space-y-1">
+            <h2 className="text-2xl font-semibold text-foreground">
+              {product.name}
+            </h2>
+            {priceLabel && (
+              <p className="text-sm text-muted-foreground">{priceLabel}</p>
+            )}
+            {product.description && (
+              <p className="text-sm text-muted-foreground">
+                {product.description}
+              </p>
+            )}
           </div>
-        )}
+
+          <ModifierGroup
+            modifiers={product.modifiers ?? []}
+            selections={selections}
+            setSelections={setSelections}
+            disabled={isSubmitting}
+            errorModifierGroupId={errorGroupId ?? undefined}
+            onGroupInteract={(groupId) => {
+              if (groupId === errorGroupId) {
+                setErrorGroupId(null);
+                setErrorMessage(null);
+              }
+            }}
+          />
+
+          <ItemUnavailableAction
+            itemUnavailableAction={itemUnavailableAction}
+            setItemUnavailableAction={setItemUnavailableAction}
+            disabled={isSubmitting}
+          />
+
+          <SpecialInstructions
+            specialInstructions={specialInstructions}
+            setSpecialInstructions={setSpecialInstructions}
+            disabled={isSubmitting}
+          />
+
+          {errorMessage && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {errorMessage}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="border-t border-muted px-4 py-4">
@@ -226,10 +248,7 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
             minValue={1}
             disabled={isSubmitting}
           />
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
-              Cancel
-            </Button>
+          <div>
             <Button
               className={cn(
                 "text-white dark:text-white",

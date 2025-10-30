@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { MenuItem } from "../types";
 import type { Product } from "@/lib/api/types";
+import { formatMoney, Currencies } from "@/lib/currency";
 
 interface XichuanMenuItemProps {
   item: MenuItem;
@@ -56,9 +57,8 @@ export function XichuanMenuItem({
     await onQuickAdd(product);
   };
 
-  const displayPrice =
-    product?.displayPrice ??
-    (typeof product?.price === "string" ? product.price : null);
+  const rawDisplayPrice =
+    product?.displayPrice ?? (typeof product?.price === "string" ? product.price : null);
 
   const numericPrice =
     typeof product?.price === "number"
@@ -67,13 +67,27 @@ export function XichuanMenuItem({
       ? Number.parseFloat(product.price)
       : item.price;
 
-  const priceLabel =
-    displayPrice ??
-    `$${
-      Number.isFinite(numericPrice)
-        ? numericPrice.toFixed(2)
-        : item.price.toFixed(2)
-    }`;
+  const priceLabel = (() => {
+    if (typeof rawDisplayPrice === "string") {
+      const trimmed = rawDisplayPrice.trim();
+      if (trimmed.length > 0) {
+        if (!trimmed.includes(" ") && !trimmed.includes("-")) {
+          const formatted = formatMoney(trimmed, Currencies.USD);
+          if (formatted.trim().length > 0) {
+            return formatted;
+          }
+        }
+        return trimmed;
+      }
+    }
+
+    const formattedNumeric = formatMoney(numericPrice, Currencies.USD);
+    if (formattedNumeric.trim().length > 0) {
+      return formattedNumeric;
+    }
+
+    return `$${Number.isFinite(numericPrice) ? numericPrice.toFixed(2) : "0.00"}`;
+  })();
 
   return (
     <Card
