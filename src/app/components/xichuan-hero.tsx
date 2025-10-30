@@ -65,7 +65,7 @@ export function XichuanHero() {
           <Button
             size="lg"
             variant="outline"
-            className="text-white dark:text-white border-white dark:border-white hover:bg-white hover:text-foreground"
+            className="text-white border-white/80 bg-transparent dark:bg-transparent hover:bg-white/10 dark:hover:bg-white/20 hover:text-white focus-visible:ring-white/40 focus-visible:border-white/60"
             onClick={() =>
               document
                 .getElementById("about")
