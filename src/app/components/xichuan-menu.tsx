@@ -8,6 +8,8 @@ import type { MenuItem } from "../types";
 import type { Product } from "@/lib/api/types";
 import { useMenuItems, useProducts } from "@/lib/api/hooks";
 import { useCart } from "../providers/cart-provider";
+import { ItemUnavailableActions } from "@craveup/storefront-sdk";
+import ProductDescriptionDialog from "./product-description/ProductDescriptionDialog";
 
 type MenuCategoryGroup = {
   key: string;
@@ -43,8 +45,15 @@ const productToMenuItem = (
 });
 
 export function XichuanMenu() {
-  const { locationId, isResolvingLocation, locationError } = useCart();
+  const {
+    locationId,
+    isResolvingLocation,
+    locationError,
+    addToCart,
+  } = useCart();
   const resolvedLocationId = locationId ?? "";
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const [addingProductId, setAddingProductId] = useState<string>("");
 
   const menuQuery = useMenuItems(resolvedLocationId);
   const productsQuery = useProducts(resolvedLocationId);
@@ -56,6 +65,31 @@ export function XichuanMenu() {
     });
     return map;
   }, [productsQuery.data]);
+
+  const handleOpenProduct = (productId: string) => {
+    setSelectedProductId(productId);
+  };
+
+  const handleCloseProduct = () => {
+    setSelectedProductId("");
+  };
+
+  const handleQuickAdd = async (product: Product) => {
+    if (!product?.id) return;
+
+    setAddingProductId(product.id);
+    try {
+      await addToCart({
+        product,
+        quantity: 1,
+        selections: [],
+        specialInstructions: "",
+        itemUnavailableAction: ItemUnavailableActions.REMOVE_ITEM,
+      });
+    } finally {
+      setAddingProductId("");
+    }
+  };
 
   const apiCategories = useMemo<MenuCategoryGroup[]>(() => {
     if (!menuQuery.data) {
@@ -176,9 +210,18 @@ export function XichuanMenu() {
                   className="mt-0"
                 >
                   <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {category.items.map((item) => (
-                      <XichuanMenuItem key={item.id} item={item} />
-                    ))}
+                    {category.items.map((item) => {
+                      const productId = item.apiProduct?.id ?? item.id;
+                      return (
+                        <XichuanMenuItem
+                          key={item.id}
+                          item={item}
+                          onCustomize={handleOpenProduct}
+                          onQuickAdd={handleQuickAdd}
+                          isAdding={addingProductId === productId}
+                        />
+                      );
+                    })}
                   </div>
                 </TabsContent>
               ))}
@@ -213,6 +256,15 @@ export function XichuanMenu() {
               </div>
             </div>
           </>
+        )}
+
+        {selectedProductId && resolvedLocationId && (
+          <ProductDescriptionDialog
+            open={Boolean(selectedProductId)}
+            productId={selectedProductId}
+            locationId={resolvedLocationId}
+            onClose={handleCloseProduct}
+          />
         )}
       </div>
     </section>

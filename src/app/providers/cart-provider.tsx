@@ -10,7 +10,13 @@ import {
   type ReactNode,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { StorefrontCart, CartItem as ApiCartItem } from "@/lib/api/types";
+import type {
+  StorefrontCart,
+  CartItem as ApiCartItem,
+  CartModifierGroup,
+  Modifier,
+  SelectedModifierTypes,
+} from "@/lib/api/types";
 import {
   deleteCart as deleteCartApi,
   fetchCart,
@@ -19,9 +25,9 @@ import {
   removeCartItem as removeCartItemApi,
   updateCartItemQuantity as updateCartItemQuantityApi,
 } from "@/lib/api/client";
-import { MenuItem, ItemOptions, CartItem as LocalCartItem } from "../types";
+import { AddToCartRequest, LocalCartItem } from "../types";
 import { storefrontClient } from "@/lib/storefront-client";
-import { FulfilmentMethods, ItemUnavailableActions } from "@craveup/storefront-sdk";
+import { FulfilmentMethods } from "@craveup/storefront-sdk";
 import { toErrorMessage } from "@/lib/api/error-utils";
 import {
   getStoredCartId,
@@ -37,7 +43,7 @@ type CartLineItem = LocalCartItem;
 interface CartContextType {
   cart: StorefrontCart | null;
   items: CartLineItem[];
-  addToCart: (item: MenuItem & { options: ItemOptions }) => Promise<void>;
+  addToCart: (request: AddToCartRequest) => Promise<void>;
   removeItem: (cartItemId: string) => Promise<void>;
   updateQuantity: (cartItemId: string, quantity: number) => Promise<void>;
   clearCart: () => Promise<void>;
@@ -86,17 +92,100 @@ const resolveProductImage = (item: ApiCartItem) => {
 
 const parseAmount = (value?: string) => (value ? Number.parseFloat(value) : 0);
 
-const buildSpecialInstructions = (options: ItemOptions | undefined) => {
-  if (!options) return undefined;
+const toPriceNumber = (value?: string | number) => {
+  if (typeof value === "number") return value;
+  if (!value) return 0;
+  const sanitized = value.replace(/[^0-9.+-]/g, "");
+  const parsed = Number.parseFloat(sanitized);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
 
-  const extras =
-    options.extraToppings && options.extraToppings.length > 0
-      ? `Extras: ${options.extraToppings.join(", ")}`
-      : "";
+const formatCartSelections = (
+  groups: CartModifierGroup[] | undefined
+): string | undefined => {
+  if (!Array.isArray(groups) || groups.length === 0) return undefined;
 
-  const instructions = options.specialInstructions?.trim();
+  const parts: string[] = [];
 
-  return [instructions, extras].filter(Boolean).join(" | ") || undefined;
+  const visit = (collection: CartModifierGroup[]) => {
+    collection.forEach((group) => {
+      const itemsLabel = group.items
+        .map((item) => {
+          const quantityPrefix = item.quantity > 1 ? `${item.quantity}x ` : "";
+          return `${quantityPrefix}${item.name}`;
+        })
+        .filter(Boolean)
+        .join(", ");
+
+      if (itemsLabel) {
+        parts.push(`${group.name}: ${itemsLabel}`);
+      }
+
+      group.items.forEach((item) => {
+        if (Array.isArray(item.children) && item.children.length > 0) {
+          visit(item.children);
+        }
+      });
+    });
+  };
+
+  visit(groups);
+  return parts.join(" | ") || undefined;
+};
+
+const buildModifierLookup = (
+  modifiers?: Modifier[] | null
+): Map<string, Modifier> => {
+  const lookup = new Map<string, Modifier>();
+  const visit = (group: Modifier | null | undefined) => {
+    if (!group) return;
+    if (!lookup.has(group.id)) {
+      lookup.set(group.id, group);
+    }
+    group.items.forEach((item) => {
+      item.childGroups?.forEach((link) => {
+        visit(link.group ?? null);
+      });
+    });
+  };
+
+  modifiers?.forEach((group) => visit(group));
+  return lookup;
+};
+
+const formatClientSelections = (
+  product: { modifiers?: Modifier[] | null | undefined },
+  selections: SelectedModifierTypes[]
+): string | undefined => {
+  if (!Array.isArray(selections) || selections.length === 0) return undefined;
+  if (!Array.isArray(product.modifiers) || product.modifiers.length === 0) {
+    return undefined;
+  }
+
+  const lookup = buildModifierLookup(product.modifiers);
+  const parts: string[] = [];
+
+  const visit = (selection: SelectedModifierTypes) => {
+    const group = lookup.get(selection.groupId);
+    const groupName = group?.name ?? selection.groupId;
+    const optionLabels = selection.selectedOptions.map((option) => {
+      const optionMeta = group?.items.find((item) => item.id === option.optionId);
+      const label = optionMeta?.name ?? option.optionId;
+      const quantityPrefix = option.quantity > 1 ? `${option.quantity}x ` : "";
+      if (Array.isArray(option.children)) {
+        option.children.forEach((child) => visit(child));
+      }
+      return `${quantityPrefix}${label}`;
+    });
+
+    if (optionLabels.length > 0) {
+      parts.push(`${groupName}: ${optionLabels.join(", ")}`);
+    }
+  };
+
+  selections.forEach((selection) => visit(selection));
+
+  return parts.join(" | ") || undefined;
 };
 
 const mapApiItemToCartLine = (item: ApiCartItem): CartLineItem => {
@@ -119,14 +208,9 @@ const mapApiItemToCartLine = (item: ApiCartItem): CartLineItem => {
       item.imageUrl ||
       resolveProductImage(item) ||
       DEFAULT_FALLBACK_IMAGE,
-    category: "signature",
-    spiceLevel: 0,
     quantity: item.quantity,
-    options: {
-      spiceLevel: 0,
-      extraToppings: [],
-      specialInstructions: item.specialInstructions ?? "",
-    },
+    selectionsText: formatCartSelections(item.selections),
+    specialInstructions: item.specialInstructions ?? undefined,
   };
 };
 
@@ -393,26 +477,57 @@ export function CartProvider({ children }: { children: ReactNode }) {
   ]);
 
   const fallbackAddToCart = useCallback(
-    (item: MenuItem & { options: ItemOptions }) => {
+    (request: AddToCartRequest) => {
+      const { product, quantity, selections, specialInstructions } = request;
+      const selectionSummary = formatClientSelections(
+        { modifiers: (product as { modifiers?: Modifier[] | null }).modifiers },
+        selections
+      );
+      const specialInstructionsTrimmed = specialInstructions
+        ? specialInstructions.trim()
+        : undefined;
+      const rawPriceCandidate =
+        (product as { displayPrice?: string | number | null }).displayPrice ??
+        (product as { price?: string | number | null }).price;
+      const resolvedPrice = toPriceNumber(
+        typeof rawPriceCandidate === "string" || typeof rawPriceCandidate === "number"
+          ? rawPriceCandidate
+          : undefined
+      );
+      const images = (product as { images?: string[] | null }).images ?? [];
+      const primaryImage =
+        (Array.isArray(images) && images.length > 0 ? images[0] : undefined) ??
+        DEFAULT_FALLBACK_IMAGE;
+
       setLocalItems((prevItems) => {
         const existing = prevItems.find(
           (line) =>
-            line.id === item.id &&
-            JSON.stringify(line.options) === JSON.stringify(item.options)
+            line.id === product.id &&
+            line.selectionsText === selectionSummary &&
+            line.specialInstructions === specialInstructionsTrimmed
         );
+
         if (existing) {
           return prevItems.map((line) =>
             line.cartId === existing.cartId
-              ? { ...line, quantity: line.quantity + 1 }
+              ? { ...line, quantity: line.quantity + quantity }
               : line
           );
         }
 
         const cartItem: CartLineItem = {
-          ...item,
-          cartId: `${item.id}-${Date.now()}`,
-          quantity: 1,
+          cartId: `${product.id}-${Date.now()}`,
+          id: product.id,
+          name: product.name,
+          description:
+            (product as { description?: string | null }).description ?? "",
+          image: primaryImage,
+          price: resolvedPrice,
+          quantity,
+          selectionsText: selectionSummary,
+          specialInstructions: specialInstructionsTrimmed,
         };
+
         return [...prevItems, cartItem];
       });
     },
@@ -420,43 +535,40 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   const addToCart = useCallback(
-    async (item: MenuItem & { options: ItemOptions }) => {
+    async (request: AddToCartRequest) => {
       setError(null);
 
       if (!usingApi) {
-        fallbackAddToCart(item);
+        fallbackAddToCart(request);
         setIsCartOpen(true);
         return;
       }
 
       const targetCartId = await ensureCart();
       if (!targetCartId) {
-        fallbackAddToCart(item);
+        fallbackAddToCart(request);
         setIsCartOpen(true);
         return;
       }
 
       const activeLocationId = locationId;
       if (!activeLocationId) {
-        fallbackAddToCart(item);
+        fallbackAddToCart(request);
         setIsCartOpen(true);
         return;
       }
 
       setIsMutating(true);
       try {
-        const payloadSpecialInstructions = buildSpecialInstructions(
-          item.options
-        );
         const response = await storefrontClient.cart.addItem(
           activeLocationId,
           targetCartId,
           {
-            productId: item.apiProduct?.id ?? item.id,
-            quantity: 1,
-            specialInstructions: payloadSpecialInstructions ?? "",
-            itemUnavailableAction: ItemUnavailableActions.REMOVE_ITEM,
-            selections: [],
+            productId: request.product.id,
+            quantity: request.quantity,
+            specialInstructions: request.specialInstructions?.trim() ?? "",
+            itemUnavailableAction: request.itemUnavailableAction,
+            selections: request.selections,
           }
         );
 
@@ -469,7 +581,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setIsCartOpen(true);
       } catch (err) {
         handleApiFailure(err);
-        fallbackAddToCart(item);
+        fallbackAddToCart(request);
         setIsCartOpen(true);
       } finally {
         setIsMutating(false);

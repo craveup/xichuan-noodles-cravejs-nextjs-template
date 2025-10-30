@@ -167,39 +167,15 @@ export function XichuanCart({ isOpen, onClose }: XichuanCartProps) {
                         {item.name}
                       </h4>
 
-                      {/* Options display */}
                       <div className="text-xs text-muted-foreground mb-2 space-y-1">
-                        {item.options?.spiceLevel && item.options?.spiceLevel > 0 && (
-                          <div>
-                            Spice Level:{" "}
-                            {
-                              [
-                                "Mild",
-                                "Medium",
-                                "Spicy",
-                                "Very Spicy",
-                                "Fire Dragon",
-                              ][item.options?.spiceLevel ?? 0]
-                            }
+                        {item.selectionsText && (
+                          <div className="text-xs text-muted-foreground">
+                            {item.selectionsText}
                           </div>
                         )}
-                        {item.options?.noodleType && (
-                          <div>
-                            Noodles: {item.options?.noodleType.replace("-", " ")}
-                          </div>
-                        )}
-                        {item.options?.extraToppings &&
-                          item.options?.extraToppings.length > 0 && (
-                            <div>
-                              Extras: {item.options.extraToppings.join(", ")}
-                            </div>
-                          )}
-                        {item.options?.specialInstructions && (
-                          <div>
-                            Notes:{" "}
-                            <span className="italic">
-                              {item.options.specialInstructions}
-                            </span>
+                        {item.specialInstructions && (
+                          <div className="text-xs italic text-muted-foreground">
+                            Notes: {item.specialInstructions}
                           </div>
                         )}
                       </div>
