@@ -190,24 +190,29 @@ export function XichuanCart({ isOpen, onClose }: XichuanCartProps) {
                             variant="outline"
                             size="sm"
                             onClick={() =>
-                          handleQuantityChange(cartItemId, item.quantity - 1)
+                              item.quantity === 1
+                                ? handleRemoveItem(cartItemId)
+                                : handleQuantityChange(cartItemId, item.quantity - 1)
                             }
                             className="h-8 w-8 p-0"
                             disabled={isLoading || busyItemId === cartItemId}
                           >
-                            <ClientIcon name="Minus" className="h-3 w-3" />
+                            <ClientIcon
+                              name={item.quantity === 1 ? "Trash2" : "Minus"}
+                              className="h-3 w-3"
+                            />
                           </Button>
 
-                          <span className="w-8 text-center font-medium">
+                          <div className="flex w-8 justify-center">
                             {busyItemId === cartItemId ? (
                               <ClientIcon
                                 name="Loader2"
                                 className="h-4 w-4 animate-spin"
                               />
                             ) : (
-                              item.quantity
+                              <span className="font-medium">{item.quantity}</span>
                             )}
-                          </span>
+                          </div>
 
                           <Button
                             variant="outline"
@@ -221,15 +226,6 @@ export function XichuanCart({ isOpen, onClose }: XichuanCartProps) {
                             <ClientIcon name="Plus" className="h-3 w-3" />
                           </Button>
 
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRemoveItem(cartItemId)}
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                            disabled={isLoading || busyItemId === cartItemId}
-                          >
-                            <ClientIcon name="Trash2" className="h-3 w-3" />
-                          </Button>
                         </div>
                       </div>
                     </div>
