@@ -1,12 +1,15 @@
 "use client";
 
+import * as React from "react";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import {
   Dialog,
   DialogContent,
   DialogOverlay,
+  DialogPortal,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { ProductDescriptionScreen } from "./ProductDescriptionScreen";
 
@@ -26,36 +29,31 @@ const ProductDescriptionDialog = ({
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const isOpen = open && Boolean(productId);
 
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) {
-      onClose();
-    }
-  };
-
   if (isDesktop) {
     return (
-      <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-        <DialogOverlay className="fixed inset-0 bg-black/60" />
-        <DialogContent className="z-1051 h-[90vh] w-full max-w-2xl overflow-hidden border-none p-0">
-          <DialogTitle className="sr-only">Product details</DialogTitle>
-          {isOpen && productId ? (
-            <ProductDescriptionScreen
-              productId={productId}
-              locationId={locationId}
-              onClose={onClose}
-            />
-          ) : null}
-        </DialogContent>
+      <Dialog open={isOpen} onOpenChange={(next) => !next && onClose()}>
+        <DialogPortal>
+          <DialogOverlay className="fixed inset-0 bg-black/5 z-1050" />
+          <DialogContent className="z-1051 h-[90vh] overflow-hidden border-none p-0">
+            <VisuallyHidden>
+              <DialogTitle>Product details</DialogTitle>
+            </VisuallyHidden>
+            {isOpen && productId ? (
+              <ProductDescriptionScreen
+                productId={productId}
+                locationId={locationId}
+                onClose={onClose}
+              />
+            ) : null}
+          </DialogContent>
+        </DialogPortal>
       </Dialog>
     );
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={handleOpenChange}>
-      <SheetContent
-        side="bottom"
-        className="z-1051 h-[90vh] overflow-hidden border-none p-0"
-      >
+    <Drawer open={isOpen} onOpenChange={(next) => !next && onClose()}>
+      <DrawerContent className="z-1051 h-[90vh] overflow-hidden border-none p-0">
         {isOpen && productId ? (
           <ProductDescriptionScreen
             productId={productId}
@@ -63,8 +61,8 @@ const ProductDescriptionDialog = ({
             onClose={onClose}
           />
         ) : null}
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   );
 };
 

@@ -9,14 +9,17 @@ import type {
 } from "@/lib/api/types";
 import { ItemUnavailableActions } from "@craveup/storefront-sdk";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { ArrowLeft, Info } from "lucide-react";
 import ModifierGroup from "./ModifierGroup";
 import ItemCounterButton from "./ItemCounterButton";
 import ItemUnavailableAction from "./ItemUnavailableAction";
 import SpecialInstructions from "./SpecialInstructions";
 import { useCart } from "../../providers/cart-provider";
 import { cn } from "@/lib/utils";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { formatMoney, Currencies } from "@/lib/currency";
+import { Separator } from "@/components/ui/separator";
+import { LoadingButton } from "@/components/ui/loading-button";
 
 interface ProductDescriptionProps {
   product: ProductDescriptionType;
@@ -77,28 +80,21 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
     [product.modifiers]
   );
 
+  const isDesktop = useMediaQuery("(min-width: 768px)");
   const productImage = product.images?.[0] ?? imagePlaceholder;
   const priceLabel = (() => {
     const raw = product.displayPrice ?? product.price ?? "";
     if (typeof raw === "string") {
       const trimmed = raw.trim();
-      if (trimmed.length === 0) {
-        return "";
-      }
+      if (trimmed.length === 0) return "";
       if (!trimmed.includes(" ") && !trimmed.includes("-")) {
         const formatted = formatMoney(trimmed, Currencies.USD);
-        if (formatted.trim().length > 0) {
-          return formatted;
-        }
+        if (formatted.trim().length > 0) return formatted;
       }
       return trimmed;
     }
-
     const formattedNumeric = formatMoney(raw, Currencies.USD);
-    if (formattedNumeric.trim().length > 0) {
-      return formattedNumeric;
-    }
-
+    if (formattedNumeric.trim().length > 0) return formattedNumeric;
     return "";
   })();
 
@@ -124,9 +120,7 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
       for (const option of selection.selectedOptions) {
         if (Array.isArray(option.children)) {
           for (const child of option.children) {
-            if (!validateGroup(child.groupId)) {
-              return false;
-            }
+            if (!validateGroup(child.groupId)) return false;
           }
         }
       }
@@ -136,16 +130,11 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
   };
 
   const validateSelections = () => {
-    if (!Array.isArray(product.modifiers) || product.modifiers.length === 0) {
+    if (!Array.isArray(product.modifiers) || product.modifiers.length === 0)
       return true;
-    }
-
     for (const group of product.modifiers) {
-      if (!validateGroup(group.id)) {
-        return false;
-      }
+      if (!validateGroup(group.id)) return false;
     }
-
     return true;
   };
 
@@ -153,9 +142,7 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
     setErrorMessage(null);
     setErrorGroupId(null);
 
-    if (!validateSelections()) {
-      return;
-    }
+    if (!validateSelections()) return;
 
     setIsSubmitting(true);
     try {
@@ -173,38 +160,62 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
   };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex h-full w-full flex-col overflow-hidden">
       <div
-        className="flex-1 overflow-y-auto scrollbar-hide"
+        className="flex-1 overflow-auto scrollbar-hide"
         id="product-description-section"
       >
-        <div className="relative aspect-4/3 w-full">
-          <Image
-            src={productImage}
-            alt={product.name}
-            fill
-            className="object-cover"
-            placeholder="blur"
-            blurDataURL={imagePlaceholder}
-            sizes="(max-width: 768px) 100vw, 600px"
-          />
-        </div>
-
-        <div className="px-4 py-6 space-y-6">
-          <div className="space-y-1">
-            <h2 className="text-2xl font-semibold text-foreground">
-              {product.name}
-            </h2>
-            {priceLabel && (
-              <p className="text-sm text-muted-foreground">{priceLabel}</p>
+        <div className="relative">
+          <div
+            className={cn(
+              "relative overflow-hidden border-b border-muted/40 bg-muted/10",
+              productImage ? "h-[400px]" : "h-16"
             )}
-            {product.description && (
-              <p className="text-sm text-muted-foreground">
-                {product.description}
-              </p>
+          >
+            {productImage ? (
+              <Image
+                src={productImage}
+                alt={product.name}
+                fill
+                className="object-cover"
+                placeholder="blur"
+                blurDataURL={imagePlaceholder}
+                sizes="(max-width: 768px) 100vw, 720px"
+              />
+            ) : null}
+
+            {!isDesktop && (
+              <Button
+                onClick={onClose}
+                className="absolute left-4 top-4 rounded-full bg-black/40 text-white backdrop-blur"
+                size="icon"
+                variant="outline"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
             )}
           </div>
+        </div>
 
+        <div className="px-4 pb-4 pt-6">
+          <p className="text-3xl font-semibold text-foreground">
+            {product.name}
+          </p>
+          {priceLabel ? (
+            <p className="mt-1 text-base sm:text-sm text-muted-foreground">
+              {priceLabel}
+            </p>
+          ) : null}
+          {product.description && (
+            <p className="mt-2 text-sm text-muted-foreground/80">
+              {product.description}
+            </p>
+          )}
+        </div>
+
+        <Separator className="mx-4" />
+
+        <div className="px-4 py-4 space-y-6">
           <ModifierGroup
             modifiers={product.modifiers ?? []}
             selections={selections}
@@ -232,14 +243,23 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
           />
 
           {errorMessage && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {errorMessage}
+            <div className="rounded-md bg-red-50 p-4">
+              <div className="flex">
+                <div className="shrink-0">
+                  <Info aria-hidden="true" className="h-5 w-5 text-red-400" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">
+                    {errorMessage}
+                  </h3>
+                </div>
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      <div className="border-t border-muted px-4 py-4">
+      <div className="px-4 py-6">
         <div className="flex items-center justify-between gap-4">
           <ItemCounterButton
             value={quantity}
@@ -249,20 +269,14 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
             disabled={isSubmitting}
           />
           <div>
-            <Button
-              className={cn(
-                "text-white dark:text-white",
-                isSubmitting && "opacity-80"
-              )}
-              style={{ backgroundColor: "hsl(var(--brand-accent))" }}
+            <LoadingButton
+              type="button"
+              className={cn("w-40", isSubmitting && "opacity-80")}
               onClick={handleAddToCart}
-              disabled={isSubmitting}
+              loading={isSubmitting}
             >
-              {isSubmitting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
               Add {quantity} to cart
-            </Button>
+            </LoadingButton>
           </div>
         </div>
       </div>

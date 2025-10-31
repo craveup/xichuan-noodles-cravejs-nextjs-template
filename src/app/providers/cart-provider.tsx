@@ -71,7 +71,6 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 const ORGANIZATION_SLUG = process.env.NEXT_PUBLIC_ORG_SLUG?.trim() ?? "";
 const DEFAULT_FALLBACK_IMAGE =
   "/images/xichuan-noodles/menu/biang_classic.webp";
-const NYC_TAX_RATE = 0.08875;
 const DEFAULT_FULFILLMENT_METHOD = FulfilmentMethods.TAKEOUT;
 
 const resolveProductImage = (item: ApiCartItem) => {
@@ -711,19 +710,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [items]
   );
 
-  const fallbackSubtotal = useMemo(
+  const lineItemsTotal = useMemo(
     () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
     [items]
-  );
-
-  const fallbackTax = useMemo(
-    () => fallbackSubtotal * NYC_TAX_RATE,
-    [fallbackSubtotal]
-  );
-
-  const fallbackTotal = useMemo(
-    () => fallbackSubtotal + fallbackTax,
-    [fallbackSubtotal, fallbackTax]
   );
 
   const itemCount = useMemo(() => {
@@ -740,35 +729,32 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const subtotal = useMemo(() => {
     if (usingApi && apiCart) {
       const apiSubtotal = parseAmount(apiCart.subTotal);
-      if (fallbackSubtotal > 0 && apiSubtotal <= 0) {
-        return fallbackSubtotal;
+      const hasValidApiSubtotal = Number.isFinite(apiSubtotal) && apiSubtotal > 0;
+      if (hasValidApiSubtotal) {
+        const delta = Math.abs(apiSubtotal - lineItemsTotal);
+        if (delta <= 0.01) {
+          return apiSubtotal;
+        }
       }
-      return apiSubtotal;
     }
-    return fallbackSubtotal;
-  }, [apiCart, fallbackSubtotal, usingApi]);
-
-  const tax = useMemo(() => {
-    if (usingApi && apiCart) {
-      const apiTax = parseAmount(apiCart.taxTotal);
-      if (fallbackTax > 0 && apiTax <= 0) {
-        return fallbackTax;
-      }
-      return apiTax;
-    }
-    return fallbackTax;
-  }, [apiCart, fallbackTax, usingApi]);
+    return lineItemsTotal;
+  }, [apiCart, lineItemsTotal, usingApi]);
 
   const total = useMemo(() => {
     if (usingApi && apiCart) {
-      const apiTotal = parseAmount(apiCart.orderTotalWithServiceFee);
-      if (fallbackTotal > 0 && apiTotal <= 0) {
-        return fallbackTotal;
+      const apiSubtotal = parseAmount(apiCart.subTotal);
+      const hasValidApiSubtotal = Number.isFinite(apiSubtotal) && apiSubtotal > 0;
+      if (hasValidApiSubtotal) {
+        const delta = Math.abs(apiSubtotal - lineItemsTotal);
+        if (delta <= 0.01) {
+          return apiSubtotal;
+        }
       }
-      return apiTotal;
     }
-    return fallbackTotal;
-  }, [apiCart, fallbackTotal, usingApi]);
+    return lineItemsTotal;
+  }, [apiCart, lineItemsTotal, usingApi]);
+
+  const tax = 0;
 
   const checkoutUrl = useMemo(() => {
     const raw =
