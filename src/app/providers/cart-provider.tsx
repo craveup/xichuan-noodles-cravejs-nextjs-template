@@ -187,15 +187,72 @@ const formatClientSelections = (
   return parts.join(" | ") || undefined;
 };
 
+const calculateModifierSelectionsTotal = (
+  product: { modifiers?: Modifier[] | null | undefined },
+  selections: SelectedModifierTypes[]
+): number => {
+  if (!Array.isArray(selections) || selections.length === 0) return 0;
+  if (!Array.isArray(product.modifiers) || product.modifiers.length === 0) {
+    return 0;
+  }
+
+  const lookup = buildModifierLookup(product.modifiers);
+
+  const computeGroupTotal = (
+    selection: SelectedModifierTypes,
+    multiplier: number
+  ): number => {
+    const group = lookup.get(selection.groupId);
+    if (!group) return 0;
+
+    return selection.selectedOptions.reduce((sum, optionSelection) => {
+      const option = group.items.find((item) => item.id === optionSelection.optionId);
+      const quantity = Math.max(optionSelection.quantity ?? 1, 1);
+      const optionUnitPrice =
+        option && (typeof option.price === "string" || typeof option.price === "number")
+          ? toPriceNumber(option.price)
+          : 0;
+      const optionTotal = optionUnitPrice * quantity * multiplier;
+
+      const childrenTotal = Array.isArray(optionSelection.children)
+        ? optionSelection.children.reduce((childSum, childSelection) => {
+            const childLink = option?.childGroups?.find(
+              (link) => link.groupId === childSelection.groupId
+            );
+            const nextMultiplier = childLink
+              ? multiplier * (childLink.applyPerParentQuantity ? quantity : 1)
+              : multiplier;
+            return childSum + computeGroupTotal(childSelection, nextMultiplier);
+          }, 0)
+        : 0;
+
+      return sum + optionTotal + childrenTotal;
+    }, 0);
+  };
+
+  return selections.reduce(
+    (total, selection) => total + computeGroupTotal(selection, 1),
+    0
+  );
+};
+
 const mapApiItemToCartLine = (item: ApiCartItem): CartLineItem => {
   const unitPrice = parseAmount(item.price);
   const totalPrice = parseAmount(item.total);
-  const resolvedPrice =
-    unitPrice > 0
-      ? unitPrice
-      : totalPrice > 0 && item.quantity > 0
-        ? totalPrice / item.quantity
-        : 0;
+  const derivedUnitPrice =
+    totalPrice > 0 && item.quantity > 0 ? totalPrice / item.quantity : 0;
+
+  let resolvedPrice = unitPrice;
+  if (derivedUnitPrice > 0) {
+    if (unitPrice <= 0) {
+      resolvedPrice = derivedUnitPrice;
+    } else {
+      const delta = Math.abs(derivedUnitPrice - unitPrice);
+      if (delta > 0.009) {
+        resolvedPrice = derivedUnitPrice;
+      }
+    }
+  }
 
   return {
     cartId: item.id,
@@ -478,8 +535,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const fallbackAddToCart = useCallback(
     (request: AddToCartRequest) => {
       const { product, quantity, selections, specialInstructions } = request;
+      const productWithModifiers = {
+        modifiers: (product as { modifiers?: Modifier[] | null }).modifiers,
+      };
       const selectionSummary = formatClientSelections(
-        { modifiers: (product as { modifiers?: Modifier[] | null }).modifiers },
+        productWithModifiers,
         selections
       );
       const specialInstructionsTrimmed = specialInstructions
@@ -488,11 +548,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const rawPriceCandidate =
         (product as { displayPrice?: string | number | null }).displayPrice ??
         (product as { price?: string | number | null }).price;
-      const resolvedPrice = toPriceNumber(
+      const basePrice = toPriceNumber(
         typeof rawPriceCandidate === "string" || typeof rawPriceCandidate === "number"
           ? rawPriceCandidate
           : undefined
       );
+      const modifiersPrice = calculateModifierSelectionsTotal(
+        productWithModifiers,
+        selections
+      );
+      const unitPriceRaw = basePrice + modifiersPrice;
+      const resolvedPrice = Number.isFinite(unitPriceRaw)
+        ? Math.round(unitPriceRaw * 100) / 100
+        : basePrice;
       const images = (product as { images?: string[] | null }).images ?? [];
       const primaryImage =
         (Array.isArray(images) && images.length > 0 ? images[0] : undefined) ??
@@ -509,7 +577,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
         if (existing) {
           return prevItems.map((line) =>
             line.cartId === existing.cartId
-              ? { ...line, quantity: line.quantity + quantity }
+              ? {
+                  ...line,
+                  quantity: line.quantity + quantity,
+                  price: resolvedPrice,
+                }
               : line
           );
         }

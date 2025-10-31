@@ -4,7 +4,6 @@ import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ResponsiveSheet } from "@/components/ResponsiveSheet";
-import { Separator } from "@/components/ui/separator";
 import { useCart } from "../providers/cart-provider";
 import { ClientIcon } from "./client-icon";
 
@@ -20,7 +19,6 @@ export function XichuanCart({ isOpen, onClose }: XichuanCartProps) {
     updateQuantity,
     total,
     checkoutUrl,
-    itemCount,
     isLoading,
     busyItemId,
   } = useCart();
@@ -153,6 +151,7 @@ export function XichuanCart({ isOpen, onClose }: XichuanCartProps) {
               const cartItemId = item.cartId;
               const itemKey = cartItemId || `${item.name}-${index}`;
               const specialInstructions = item.specialInstructions?.trim();
+              const lineTotal = item.price * item.quantity;
 
               return (
                 <Card
@@ -193,7 +192,7 @@ export function XichuanCart({ isOpen, onClose }: XichuanCartProps) {
 
                     <div className="flex flex-col items-end justify-start gap-2">
                       <span className="text-sm font-semibold text-foreground">
-                        ${item.price.toFixed(2)}
+                        ${lineTotal.toFixed(2)}
                       </span>
 
                       <div className="flex max-w-[120px] items-center gap-2">
