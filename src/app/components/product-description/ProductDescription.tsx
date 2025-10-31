@@ -9,7 +9,7 @@ import type {
 } from "@/lib/api/types";
 import { ItemUnavailableActions } from "@craveup/storefront-sdk";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Info } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import ModifierGroup from "./ModifierGroup";
 import ItemCounterButton from "./ItemCounterButton";
 import ItemUnavailableAction from "./ItemUnavailableAction";
@@ -20,6 +20,7 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { formatMoney, Currencies } from "@/lib/currency";
 import { Separator } from "@/components/ui/separator";
 import { LoadingButton } from "@/components/ui/loading-button";
+import { toast } from "sonner";
 
 interface ProductDescriptionProps {
   product: ProductDescriptionType;
@@ -72,7 +73,6 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
   );
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorGroupId, setErrorGroupId] = useState<string | null>(null);
 
   const modifierLookup = useMemo(
@@ -82,22 +82,44 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
 
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const productImage = product.images?.[0] ?? imagePlaceholder;
+  const priceLabel = (() => {
+    const raw = product.displayPrice ?? product.price ?? "";
+    if (typeof raw === "string") {
+      const trimmed = raw.trim();
+      if (trimmed.length === 0) return "";
+      if (!trimmed.includes(" ") && !trimmed.includes("-")) {
+        const formatted = formatMoney(trimmed, Currencies.USD);
+        if (formatted.trim().length > 0) return formatted;
+      }
+      return trimmed;
+    }
+
+    const formattedNumeric = formatMoney(raw, Currencies.USD);
+    if (formattedNumeric.trim().length > 0) return formattedNumeric;
+
+    return "";
+  })();
 
   const validateGroup = (groupId: string): boolean => {
     const group = modifierLookup.get(groupId);
+
     if (!group) return true;
 
     const selection = selections.find((entry) => entry.groupId === groupId);
+
     const totalSelected = selection
       ? selection.selectedOptions.reduce(
           (acc, option) => acc + option.quantity,
+
           0
         )
       : 0;
 
     if (totalSelected < group.rule.min || totalSelected > group.rule.max) {
       setErrorGroupId(groupId);
-      setErrorMessage(formatRuleError(group));
+
+      toast.error(formatRuleError(group));
+
       return false;
     }
 
@@ -124,7 +146,6 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
   };
 
   const handleAddToCart = async () => {
-    setErrorMessage(null);
     setErrorGroupId(null);
 
     if (!validateSelections()) return;
@@ -206,7 +227,6 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
             onGroupInteract={(groupId) => {
               if (groupId === errorGroupId) {
                 setErrorGroupId(null);
-                setErrorMessage(null);
               }
             }}
           />
@@ -222,21 +242,6 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
             setSpecialInstructions={setSpecialInstructions}
             disabled={isSubmitting}
           />
-
-          {errorMessage && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="flex">
-                <div className="shrink-0">
-                  <Info aria-hidden="true" className="h-5 w-5 text-red-400" />
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">
-                    {errorMessage}
-                  </h3>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 

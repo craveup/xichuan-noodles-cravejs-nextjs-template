@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "sonner";
 
 // Providers & Components
 import { CartProvider } from "./providers/cart-provider";
@@ -59,6 +60,7 @@ export default function RootLayout({
           <XichuanQueryClientProvider>
             <RestaurantThemeProvider defaultThemePath="/themes/leclerc-theme.json">
               <CartProvider>{children}</CartProvider>
+              <Toaster richColors position="top-center" />
             </RestaurantThemeProvider>
           </XichuanQueryClientProvider>
         </ErrorBoundary>
@@ -66,3 +68,4 @@ export default function RootLayout({
     </html>
   );
 }
+

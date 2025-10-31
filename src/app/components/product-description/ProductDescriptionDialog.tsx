@@ -53,7 +53,7 @@ const ProductDescriptionDialog = ({
 
   return (
     <Drawer open={isOpen} onOpenChange={(next) => !next && onClose()}>
-      <DrawerContent className="z-1051 h-[90vh] overflow-hidden border-none p-0">
+      <DrawerContent className="z-1051 h-[92vh] max-h-[92vh] overflow-hidden border border-border/40 bg-background p-0 shadow-[0_-20px_60px_rgba(5,10,20,0.65)]">
         {isOpen && productId ? (
           <ProductDescriptionScreen
             productId={productId}
