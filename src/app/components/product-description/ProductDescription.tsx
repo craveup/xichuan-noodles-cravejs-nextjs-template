@@ -82,21 +82,6 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
 
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const productImage = product.images?.[0] ?? imagePlaceholder;
-  const priceLabel = (() => {
-    const raw = product.displayPrice ?? product.price ?? "";
-    if (typeof raw === "string") {
-      const trimmed = raw.trim();
-      if (trimmed.length === 0) return "";
-      if (!trimmed.includes(" ") && !trimmed.includes("-")) {
-        const formatted = formatMoney(trimmed, Currencies.USD);
-        if (formatted.trim().length > 0) return formatted;
-      }
-      return trimmed;
-    }
-    const formattedNumeric = formatMoney(raw, Currencies.USD);
-    if (formattedNumeric.trim().length > 0) return formattedNumeric;
-    return "";
-  })();
 
   const validateGroup = (groupId: string): boolean => {
     const group = modifierLookup.get(groupId);
@@ -201,11 +186,7 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
           <p className="text-3xl font-semibold text-foreground">
             {product.name}
           </p>
-          {priceLabel ? (
-            <p className="mt-1 text-base sm:text-sm text-muted-foreground">
-              {priceLabel}
-            </p>
-          ) : null}
+
           {product.description && (
             <p className="mt-2 text-sm text-muted-foreground/80">
               {product.description}

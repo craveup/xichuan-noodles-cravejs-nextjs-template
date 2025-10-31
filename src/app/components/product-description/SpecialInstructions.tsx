@@ -88,10 +88,7 @@ const SpecialInstructions = ({
           }
         }}
       >
-        <DialogContent
-          className="z-1101 max-h-[85vh] max-w-[90vw] overflow-hidden rounded-lg p-0 sm:max-w-lg"
-          overlayClassName="z-[1100] bg-black/60"
-        >
+        <DialogContent className="z-1101 max-h-[85vh] max-w-[90vw] overflow-hidden rounded-lg p-0 sm:max-w-lg">
           <form
             onSubmit={handleSave}
             className="flex h-full flex-col"
@@ -101,9 +98,6 @@ const SpecialInstructions = ({
               <DialogTitle className="text-lg font-semibold">
                 Enter special instructions
               </DialogTitle>
-              <p className="text-sm text-muted-foreground">
-                Let the kitchen know about allergies or special requests.
-              </p>
             </DialogHeader>
 
             <div className="flex-1 overflow-y-auto px-6 pb-4 pt-2 scrollbar-hide">

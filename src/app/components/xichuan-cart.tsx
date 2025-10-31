@@ -157,7 +157,7 @@ export function XichuanCart({ isOpen, onClose }: XichuanCartProps) {
               return (
                 <Card
                   key={itemKey}
-                  className="rounded-2xl border border-border bg-card p-4 text-foreground shadow-[0_18px_42px_rgba(15,23,42,0.08)] transition-shadow hover:shadow-[0_22px_54px_rgba(15,23,42,0.14)] dark:border-border/60 dark:bg-muted/20 dark:shadow-none"
+                  className="rounded-2xl border border-border bg-card p-4 text-foregrounddark:border-border/60 dark:bg-muted/20"
                 >
                   <div className="flex w-full gap-4 sm:gap-5">
                     <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-muted ring-1 ring-border/70 shadow-[0_12px_30px_rgba(15,23,42,0.12)] dark:bg-muted/40 dark:ring-border/50 dark:shadow-none">
