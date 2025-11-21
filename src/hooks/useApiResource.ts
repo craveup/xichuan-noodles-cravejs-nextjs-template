@@ -1,6 +1,6 @@
 import useSWR, { SWRResponse } from "swr";
 import { SWR_CONFIG } from "@/constants";
-import { fetcherSWR } from "@/lib/handle-api";
+import { swrFetcher } from "@/lib/api/fetcher";
 import { toErrorMessage } from "@/lib/api/error-utils";
 
 type UseApiResourceOptions = Partial<typeof SWR_CONFIG> & {
@@ -16,7 +16,7 @@ export function useApiResource<T = unknown>(
 
   const { data, error, mutate, isValidating }: SWRResponse<T> = useSWR<T>(
     key,
-    fetcherSWR,
+    swrFetcher,
     { ...SWR_CONFIG, ...swrOptions },
   );
 
