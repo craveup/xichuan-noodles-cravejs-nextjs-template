@@ -64,6 +64,20 @@ const formatRuleError = (group: Modifier) => {
   return `Please select between ${min} and ${max} options for ${group.name}.`;
 };
 
+const splitDescription = (description?: string | null) => {
+  if (!description) {
+    return { main: "", notes: [] as string[] };
+  }
+
+  const notes = Array.from(description.matchAll(/\(([^)]+)\)/g))
+    .map((match) => match[1]?.trim())
+    .filter((value): value is string => Boolean(value));
+
+  const main = description.replace(/\s*\([^)]*\)/g, "").trim();
+
+  return { main, notes };
+};
+
 const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
   const { addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
@@ -99,6 +113,11 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
 
     return "";
   })();
+
+  const { main: mainDescription, notes: parentheticalNotes } = useMemo(
+    () => splitDescription(product.description ?? ""),
+    [product.description]
+  );
 
   const validateGroup = (groupId: string): boolean => {
     const group = modifierLookup.get(groupId);
@@ -208,10 +227,22 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
             {product.name}
           </p>
 
-          {product.description && (
+          {mainDescription && (
             <p className="mt-2 text-sm text-muted-foreground/80">
-              {product.description}
+              {mainDescription}
             </p>
+          )}
+          {parentheticalNotes.length > 0 && (
+            <div className="mt-1 space-y-1">
+              {parentheticalNotes.map((note, index) => (
+                <p
+                  key={`${product.id}-dialog-note-${index}`}
+                  className="text-sm font-semibold text-red-500"
+                >
+                  ({note})
+                </p>
+              ))}
+            </div>
           )}
         </div>
 

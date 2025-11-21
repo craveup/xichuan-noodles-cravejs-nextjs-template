@@ -1,26 +1,46 @@
-import { useQuery } from "@tanstack/react-query";
-import { fetchMenuItems, fetchProducts } from "./client";
+import useMenus from "@/hooks/useMenus";
+import { useApiResource } from "@/hooks/useApiResource";
+import type { MenuResponse, Product } from "@/lib/api/types";
+import { ORGANIZATION_SLUG } from "@/constants";
 
-export const useMenuItems = (
-  locationId: string,
-  orderDate?: string,
-  orderTime?: string,
-) => {
-  const menuOnly = !(orderDate && orderTime);
-
-  return useQuery({
-    queryKey: ["menu", locationId, orderDate, orderTime, menuOnly],
-    queryFn: () =>
-      fetchMenuItems(locationId, orderDate, orderTime, { menuOnly }),
-    staleTime: 5 * 60 * 1000,
-    enabled: Boolean(locationId),
-  });
+const canFetchForLocation = (locationId: string | undefined | null) => {
+  if (!locationId) return false;
+  if (ORGANIZATION_SLUG && locationId === ORGANIZATION_SLUG) {
+    return false;
+  }
+  return true;
 };
 
-export const useProducts = (locationId: string) =>
-  useQuery({
-    queryKey: ["products", locationId],
-    queryFn: () => fetchProducts(locationId),
-    staleTime: 10 * 60 * 1000,
-    enabled: Boolean(locationId),
+export const useMenuItems = (locationId: string) => {
+  const enabled = canFetchForLocation(locationId);
+
+  const response = useMenus({
+    locationId,
+    isEnabled: enabled,
   });
+
+  return {
+    data: response.data as MenuResponse | undefined,
+    error: response.error,
+    isLoading: response.isLoading,
+    isFetching: response.isValidating,
+  };
+};
+
+export const useProducts = (locationId: string, cartId?: string | null) => {
+  const enabled = canFetchForLocation(locationId) && Boolean(cartId);
+
+  const response = useApiResource<Product[]>(
+    enabled && locationId && cartId
+      ? `/api/v1/locations/${locationId}/carts/${cartId}/products`
+      : null,
+    { shouldFetch: enabled && Boolean(locationId && cartId) },
+  );
+
+  return {
+    data: response.data,
+    error: response.error,
+    isLoading: response.isLoading,
+    isFetching: response.isValidating,
+  };
+};

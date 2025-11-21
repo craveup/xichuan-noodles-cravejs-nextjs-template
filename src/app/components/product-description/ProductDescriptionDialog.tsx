@@ -12,11 +12,17 @@ import {
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { ProductDescriptionScreen } from "./ProductDescriptionScreen";
+import type {
+  Product,
+  ProductDescription as ProductDescriptionType,
+} from "@/lib/api/types";
 
 interface ProductDescriptionDialogProps {
   open: boolean;
   productId: string;
-  locationId: string;
+  locationId?: string;
+  product?: Product | ProductDescriptionType | null;
+  canUseApi?: boolean;
   onClose: () => void;
 }
 
@@ -24,6 +30,8 @@ const ProductDescriptionDialog = ({
   open,
   productId,
   locationId,
+  product,
+  canUseApi = true,
   onClose,
 }: ProductDescriptionDialogProps) => {
   const isDesktop = useMediaQuery("(min-width: 768px)");
@@ -41,7 +49,9 @@ const ProductDescriptionDialog = ({
             {isOpen && productId ? (
               <ProductDescriptionScreen
                 productId={productId}
-                locationId={locationId}
+                locationId={locationId ?? null}
+                product={product ?? undefined}
+                canUseApi={canUseApi}
                 onClose={onClose}
               />
             ) : null}
@@ -57,7 +67,9 @@ const ProductDescriptionDialog = ({
         {isOpen && productId ? (
           <ProductDescriptionScreen
             productId={productId}
-            locationId={locationId}
+            locationId={locationId ?? null}
+            product={product ?? undefined}
+            canUseApi={canUseApi}
             onClose={onClose}
           />
         ) : null}

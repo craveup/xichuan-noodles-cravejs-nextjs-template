@@ -58,7 +58,8 @@ export function XichuanMenuItem({
   };
 
   const rawDisplayPrice =
-    product?.displayPrice ?? (typeof product?.price === "string" ? product.price : null);
+    product?.displayPrice ??
+    (typeof product?.price === "string" ? product.price : null);
 
   const numericPrice =
     typeof product?.price === "number"
@@ -86,40 +87,26 @@ export function XichuanMenuItem({
       return formattedNumeric;
     }
 
-    return `$${Number.isFinite(numericPrice) ? numericPrice.toFixed(2) : "0.00"}`;
+    return `$${
+      Number.isFinite(numericPrice) ? numericPrice.toFixed(2) : "0.00"
+    }`;
   })();
+
+  const description = item.description ?? "";
+  const parentheticalNotes = Array.from(description.matchAll(/\(([^)]+)\)/g))
+    .map((match) => match[1]?.trim())
+    .filter(Boolean) as string[];
+  const mainDescription = description.replace(/\s*\([^)]*\)/g, "").trim();
 
   return (
     <Card
-      className="flex h-full flex-col overflow-hidden transition-shadow hover:shadow-lg cursor-pointer"
+      className="flex h-full flex-col gap-0 overflow-hidden transition-shadow hover:shadow-lg cursor-pointer py-0"
       onClick={product ? handleCardClick : undefined}
       role="article"
       aria-labelledby={`item-${item.id}-name`}
     >
-      <div className="relative h-72 w-full bg-muted">
-        <Image
-          src={item.image}
-          alt={item.name}
-          fill
-          className="object-cover"
-          sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-        />
-        {item.isSignature && (
-          <Badge
-            className="absolute top-4 left-4 text-white dark:text-white"
-            style={{ backgroundColor: "hsl(var(--brand-accent))" }}
-          >
-            Signature
-          </Badge>
-        )}
-        {item.isPopular && (
-          <Badge
-            className="absolute top-4 right-4 text-white dark:text-white"
-            style={{ backgroundColor: "hsl(var(--brand-accent))" }}
-          >
-            Popular
-          </Badge>
-        )}
+      <div className="relative w-full h-72 sm:h-80 md:h-96 lg:h-[520px] overflow-hidden rounded-t-xl bg-muted">
+        <Image src={item.image} alt={item.name} fill className="object-cover" />
       </div>
 
       <CardContent className="flex flex-1 flex-col p-6">
@@ -130,15 +117,21 @@ export function XichuanMenuItem({
           >
             {item.name}
           </h3>
-          <p className="text-sm text-muted-foreground line-clamp-3 min-h-15">
-            {item.description}
-          </p>
-          {item.spiceLevel > 0 && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Flame className="h-4 w-4 text-red-500" />
-              <span className={SPICE_COLORS[item.spiceLevel] ?? ""}>
-                {SPICE_LABELS[item.spiceLevel] ?? "Spicy"}
-              </span>
+          {mainDescription && (
+            <p className="text-sm text-muted-foreground line-clamp-3 min-h-10">
+              {mainDescription}
+            </p>
+          )}
+          {parentheticalNotes.length > 0 && (
+            <div className="space-y-0">
+              {parentheticalNotes.map((note, index) => (
+                <p
+                  key={`${item.id}-note-${index}`}
+                  className="text-normal font-semibold text-red-500"
+                >
+                  {note}
+                </p>
+              ))}
             </div>
           )}
         </div>
@@ -153,7 +146,7 @@ export function XichuanMenuItem({
 
           <Button
             onClick={handleAddClick}
-            className="rounded-full h-11 w-11 p-0 text-white dark:text-white"
+            className="rounded-full h-11 w-11 p-0 text-white dark:text-white cursor-pointer"
             style={{ backgroundColor: "hsl(var(--brand-accent))" }}
             aria-label={hasModifiers ? "Customize item" : "Add to cart"}
             disabled={isAdding}

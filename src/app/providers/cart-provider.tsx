@@ -9,7 +9,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import type {
   StorefrontCart,
   CartItem as ApiCartItem,
@@ -30,10 +29,15 @@ import { storefrontClient } from "@/lib/storefront-client";
 import { FulfilmentMethods } from "@craveup/storefront-sdk";
 import { toErrorMessage } from "@/lib/api/error-utils";
 import {
-  getStoredCartId,
-  setStoredCartId,
-  storageKeyForLocation,
-} from "@/lib/cart-storage";
+  ApiError,
+  API_SETUP_MESSAGE,
+  IS_API_CONFIGURED,
+} from "@/lib/api/config";
+import {
+  getCartId as getPersistedCartId,
+  setCartId as persistCartId,
+  removeCartCartId,
+} from "@/lib/local-storage";
 import { useCart as useCartResource } from "@/hooks/useCart";
 import { useOrderingSession } from "@/hooks/use-ordering-session";
 import { startOrderingSession } from "@/lib/api/ordering-session";
@@ -69,9 +73,15 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 const ORGANIZATION_SLUG = process.env.NEXT_PUBLIC_ORG_SLUG?.trim() ?? "";
+const CONFIGURED_LOCATION_ID =
+  process.env.NEXT_PUBLIC_LOCATION_ID?.trim() ?? "";
 const DEFAULT_FALLBACK_IMAGE =
   "/images/xichuan-noodles/menu/biang_classic.webp";
 const DEFAULT_FULFILLMENT_METHOD = FulfilmentMethods.TAKEOUT;
+const UNAUTHORIZED_CODES = new Set([401, 403]);
+
+const isUnauthorizedError = (error: unknown): error is ApiError =>
+  error instanceof ApiError && UNAUTHORIZED_CODES.has(error.status);
 
 const resolveProductImage = (item: ApiCartItem) => {
   const product = (item as { product?: { imageUrl?: string; image?: string } })
@@ -271,22 +281,42 @@ const mapApiItemToCartLine = (item: ApiCartItem): CartLineItem => {
 };
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const queryClient = useQueryClient();
-
   const organizationSlug = ORGANIZATION_SLUG || null;
-  const [locationId, setLocationId] = useState<string | null>(null);
+  const [locationId, setLocationId] = useState<string | null>(() =>
+    CONFIGURED_LOCATION_ID || null
+  );
   const [isResolvingLocation, setIsResolvingLocation] = useState<boolean>(
-    () => Boolean(organizationSlug)
+    () => Boolean(!CONFIGURED_LOCATION_ID && organizationSlug)
   );
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [apiEnabled, setApiEnabled] = useState(IS_API_CONFIGURED);
 
   useEffect(() => {
+    if (CONFIGURED_LOCATION_ID) {
+      if (locationId !== CONFIGURED_LOCATION_ID) {
+        setLocationId(CONFIGURED_LOCATION_ID);
+      }
+      setLocationError(null);
+      setIsResolvingLocation(false);
+      setApiEnabled(IS_API_CONFIGURED);
+      return;
+    }
+
     if (!organizationSlug) {
       if (locationId !== null) {
         setLocationId(null);
       }
       setLocationError(null);
       setIsResolvingLocation(false);
+      setApiEnabled(IS_API_CONFIGURED);
+      return;
+    }
+
+    if (!IS_API_CONFIGURED) {
+      setLocationId(null);
+      setLocationError(API_SETUP_MESSAGE);
+      setIsResolvingLocation(false);
+      setApiEnabled(false);
       return;
     }
 
@@ -306,6 +336,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       let resolvedId: string | null = null;
       let failure: unknown = null;
+      let unauthorized = false;
 
       try {
         const location = await fetchLocation(slug);
@@ -314,9 +345,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         failure = error;
+        unauthorized = isUnauthorizedError(error);
       }
 
-      if (!resolvedId) {
+      if (!resolvedId && !unauthorized) {
         try {
           const merchant = await fetchMerchant(slug);
           const candidate =
@@ -334,6 +366,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           }
         } catch (error) {
           failure = error;
+          unauthorized = unauthorized || isUnauthorizedError(error);
         }
       }
 
@@ -346,8 +379,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setLocationError(null);
       } else if (failure) {
         setLocationId(null);
-        setLocationError(toErrorMessage(failure));
-        console.error("[cart] failed to resolve location", failure);
+        const message = toErrorMessage(failure);
+        const finalMessage = unauthorized
+          ? `${message}. ${API_SETUP_MESSAGE}`
+          : message;
+        setLocationError(finalMessage);
+        setApiEnabled((prev) => (unauthorized ? false : prev));
+        const logFn = unauthorized ? console.warn : console.error;
+        logFn("[cart] failed to resolve location", failure);
       } else {
         setLocationId(null);
         setLocationError("Unable to resolve location from configuration.");
@@ -364,10 +403,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [organizationSlug, locationId]);
 
   const preferApi = Boolean(locationId) && !isResolvingLocation;
-  const [apiEnabled, setApiEnabled] = useState(preferApi);
 
   useEffect(() => {
-    if (preferApi) {
+    if (preferApi && IS_API_CONFIGURED) {
       setApiEnabled(true);
     }
   }, [preferApi]);
@@ -383,16 +421,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [isMutating, setIsMutating] = useState(false);
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
 
-  const storageKey = useMemo(
-    () => (locationId ? storageKeyForLocation(locationId) : null),
-    [locationId]
-  );
-
   const {
     cart: apiCart,
     cartId: hookCartId,
     isLoading: cartQueryLoading,
     setCartIdState: setHookCartId,
+    mutate: mutateCartResource,
   } = useCartResource({
     locationId: locationId ?? undefined,
     shouldFetch: usingApi,
@@ -419,15 +453,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [cartId, sessionCartId, setHookCartId, usingApi]);
 
   useEffect(() => {
-    if (!usingApi || !storageKey) return;
+    if (!usingApi || !locationId) return;
 
-    if (typeof window === "undefined") return;
-
-    const storedId = locationId ? getStoredCartId(locationId) : null;
+    const storedId =
+      getPersistedCartId(locationId, String(DEFAULT_FULFILLMENT_METHOD)) ||
+      null;
     if (storedId) {
       setCartId(storedId);
     }
-  }, [locationId, storageKey, usingApi]);
+  }, [locationId, usingApi]);
 
   useEffect(() => {
     if (!usingApi) {
@@ -440,24 +474,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (!locationId) return;
 
       if (cart) {
-        queryClient.setQueryData(["cart", locationId, cart.id], cart);
+        mutateCartResource(cart, false);
         setCartId(cart.id);
         setHookCartId(cart.id);
         setLocalItems(cart.items.map(mapApiItemToCartLine));
-        if (storageKey && typeof window !== "undefined") {
-          setStoredCartId(locationId, cart.id);
-        }
+        persistCartId(
+          locationId,
+          cart.id,
+          String(DEFAULT_FULFILLMENT_METHOD)
+        );
       } else if (cartId) {
-        queryClient.removeQueries({ queryKey: ["cart", locationId, cartId] });
-        if (storageKey && typeof window !== "undefined") {
-          setStoredCartId(locationId, null);
-        }
+        mutateCartResource(undefined, false);
+        removeCartCartId(locationId, String(DEFAULT_FULFILLMENT_METHOD));
         setCartId(null);
         setHookCartId(null);
         setLocalItems([]);
       }
     },
-    [cartId, locationId, queryClient, setHookCartId, storageKey]
+    [cartId, locationId, mutateCartResource, setHookCartId]
   );
 
   const seedLocalCartFromApi = useCallback(() => {
@@ -493,8 +527,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
 
     let persistedId: string | null = null;
-    if (storageKey && typeof window !== "undefined") {
-      persistedId = getStoredCartId(locationId);
+    if (locationId) {
+      persistedId =
+        getPersistedCartId(locationId, String(DEFAULT_FULFILLMENT_METHOD)) ||
+        null;
     }
 
     setIsMutating(true);
@@ -528,7 +564,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     locationId,
     refreshCart,
     sessionCartId,
-    storageKey,
     usingApi,
   ]);
 

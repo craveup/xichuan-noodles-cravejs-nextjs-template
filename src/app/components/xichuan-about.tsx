@@ -21,7 +21,7 @@ export function XichuanAbout() {
 
           {/* Main Story */}
           <div className="grid md:grid-cols-2 gap-12 items-center mb-16">
-            <div>
+            <div className="max-w-2xl mx-auto text-center md:text-left">
               <h3 className="text-2xl font-semibold mb-6">
                 The Art of Hand-Pulled Noodles
               </h3>

@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import type { ProductDescription as ProductDescriptionType } from "@/lib/api/types";
+import type {
+  Product,
+  ProductDescription as ProductDescriptionType,
+} from "@/lib/api/types";
 import { storefrontClient } from "@/lib/storefront-client";
 import { toErrorMessage } from "@/lib/api/error-utils";
 import ProductDescription from "./ProductDescription";
@@ -11,23 +14,31 @@ import ProductDescriptionSkeleton from "./ProductDescriptionSkeleton";
 
 interface ProductDescriptionScreenProps {
   productId: string;
-  locationId: string;
+  locationId?: string | null;
+  product?: ProductDescriptionType | Product | null;
+  canUseApi?: boolean;
   onClose: () => void;
 }
+
+type DescribableProduct = ProductDescriptionType | Product;
 
 export const ProductDescriptionScreen = ({
   productId,
   locationId,
+  product: initialProduct,
+  canUseApi = true,
   onClose,
 }: ProductDescriptionScreenProps) => {
-  const [product, setProduct] =
-    useState<ProductDescriptionType | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [product, setProduct] = useState<DescribableProduct | null>(
+    initialProduct ?? null
+  );
+  const [isLoading, setIsLoading] = useState(() => Boolean(canUseApi));
   const [error, setError] = useState<string | null>(null);
 
   const fetchProduct = useCallback(async () => {
-    if (!productId || !locationId) {
-      setProduct(null);
+    if (!canUseApi || !productId || !locationId) {
+      setProduct(initialProduct ?? null);
+      setIsLoading(false);
       return;
     }
 
@@ -45,12 +56,17 @@ export const ProductDescriptionScreen = ({
     } finally {
       setIsLoading(false);
     }
-  }, [locationId, productId]);
+  }, [canUseApi, initialProduct, locationId, productId]);
 
   useEffect(() => {
-    if (!productId || !locationId) return;
+    if (!productId) return;
+    if (!canUseApi || !locationId) {
+      setProduct(initialProduct ?? null);
+      setIsLoading(false);
+      return;
+    }
     void fetchProduct();
-  }, [fetchProduct, productId, locationId]);
+  }, [canUseApi, fetchProduct, initialProduct, locationId, productId]);
 
   if (!productId) {
     return null;
@@ -81,5 +97,10 @@ export const ProductDescriptionScreen = ({
     return <ProductDescriptionSkeleton />;
   }
 
-  return <ProductDescription product={product} onClose={onClose} />;
+  return (
+    <ProductDescription
+      product={product as ProductDescriptionType}
+      onClose={onClose}
+    />
+  );
 };
