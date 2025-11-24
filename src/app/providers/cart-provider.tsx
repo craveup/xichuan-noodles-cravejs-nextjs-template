@@ -9,8 +9,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import type { StorefrontCart, CartItem as ApiCartItem } from "@/lib/api/types";
+import type {
+  StorefrontCart,
+  CartItem as ApiCartItem,
+  CartModifierGroup,
+  Modifier,
+  SelectedModifierTypes,
+} from "@/lib/api/types";
 import {
   deleteCart as deleteCartApi,
   fetchCart,
@@ -19,15 +24,20 @@ import {
   removeCartItem as removeCartItemApi,
   updateCartItemQuantity as updateCartItemQuantityApi,
 } from "@/lib/api/client";
-import { MenuItem, ItemOptions, CartItem as LocalCartItem } from "../types";
+import { AddToCartRequest, LocalCartItem } from "../types";
 import { storefrontClient } from "@/lib/storefront-client";
-import { FulfilmentMethods, ItemUnavailableActions } from "@craveup/storefront-sdk";
+import { FulfilmentMethods } from "@craveup/storefront-sdk";
 import { toErrorMessage } from "@/lib/api/error-utils";
 import {
-  getStoredCartId,
-  setStoredCartId,
-  storageKeyForLocation,
-} from "@/lib/cart-storage";
+  ApiError,
+  API_SETUP_MESSAGE,
+  IS_API_CONFIGURED,
+} from "@/lib/api/config";
+import {
+  getCartId as getPersistedCartId,
+  setCartId as persistCartId,
+  removeCartCartId,
+} from "@/lib/local-storage";
 import { useCart as useCartResource } from "@/hooks/useCart";
 import { useOrderingSession } from "@/hooks/use-ordering-session";
 import { startOrderingSession } from "@/lib/api/ordering-session";
@@ -37,7 +47,7 @@ type CartLineItem = LocalCartItem;
 interface CartContextType {
   cart: StorefrontCart | null;
   items: CartLineItem[];
-  addToCart: (item: MenuItem & { options: ItemOptions }) => Promise<void>;
+  addToCart: (request: AddToCartRequest) => Promise<void>;
   removeItem: (cartItemId: string) => Promise<void>;
   updateQuantity: (cartItemId: string, quantity: number) => Promise<void>;
   clearCart: () => Promise<void>;
@@ -63,10 +73,15 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 const ORGANIZATION_SLUG = process.env.NEXT_PUBLIC_ORG_SLUG?.trim() ?? "";
+const CONFIGURED_LOCATION_ID =
+  process.env.NEXT_PUBLIC_LOCATION_ID?.trim() ?? "";
 const DEFAULT_FALLBACK_IMAGE =
   "/images/xichuan-noodles/menu/biang_classic.webp";
-const NYC_TAX_RATE = 0.08875;
 const DEFAULT_FULFILLMENT_METHOD = FulfilmentMethods.TAKEOUT;
+const UNAUTHORIZED_CODES = new Set([401, 403]);
+
+const isUnauthorizedError = (error: unknown): error is ApiError =>
+  error instanceof ApiError && UNAUTHORIZED_CODES.has(error.status);
 
 const resolveProductImage = (item: ApiCartItem) => {
   const product = (item as { product?: { imageUrl?: string; image?: string } })
@@ -86,28 +101,168 @@ const resolveProductImage = (item: ApiCartItem) => {
 
 const parseAmount = (value?: string) => (value ? Number.parseFloat(value) : 0);
 
-const buildSpecialInstructions = (options: ItemOptions | undefined) => {
-  if (!options) return undefined;
+const toPriceNumber = (value?: string | number) => {
+  if (typeof value === "number") return value;
+  if (!value) return 0;
+  const sanitized = value.replace(/[^0-9.+-]/g, "");
+  const parsed = Number.parseFloat(sanitized);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
 
-  const extras =
-    options.extraToppings && options.extraToppings.length > 0
-      ? `Extras: ${options.extraToppings.join(", ")}`
-      : "";
+const formatCartSelections = (
+  groups: CartModifierGroup[] | undefined
+): string | undefined => {
+  if (!Array.isArray(groups) || groups.length === 0) return undefined;
 
-  const instructions = options.specialInstructions?.trim();
+  const parts: string[] = [];
 
-  return [instructions, extras].filter(Boolean).join(" | ") || undefined;
+  const visit = (collection: CartModifierGroup[]) => {
+    collection.forEach((group) => {
+      const itemsLabel = group.items
+        .map((item) => {
+          const quantityPrefix = item.quantity > 1 ? `${item.quantity}x ` : "";
+          return `${quantityPrefix}${item.name}`;
+        })
+        .filter(Boolean)
+        .join(", ");
+
+      if (itemsLabel) {
+        parts.push(`${group.name}: ${itemsLabel}`);
+      }
+
+      group.items.forEach((item) => {
+        if (Array.isArray(item.children) && item.children.length > 0) {
+          visit(item.children);
+        }
+      });
+    });
+  };
+
+  visit(groups);
+  return parts.join(" | ") || undefined;
+};
+
+const buildModifierLookup = (
+  modifiers?: Modifier[] | null
+): Map<string, Modifier> => {
+  const lookup = new Map<string, Modifier>();
+  const visit = (group: Modifier | null | undefined) => {
+    if (!group) return;
+    if (!lookup.has(group.id)) {
+      lookup.set(group.id, group);
+    }
+    group.items.forEach((item) => {
+      item.childGroups?.forEach((link) => {
+        visit(link.group ?? null);
+      });
+    });
+  };
+
+  modifiers?.forEach((group) => visit(group));
+  return lookup;
+};
+
+const formatClientSelections = (
+  product: { modifiers?: Modifier[] | null | undefined },
+  selections: SelectedModifierTypes[]
+): string | undefined => {
+  if (!Array.isArray(selections) || selections.length === 0) return undefined;
+  if (!Array.isArray(product.modifiers) || product.modifiers.length === 0) {
+    return undefined;
+  }
+
+  const lookup = buildModifierLookup(product.modifiers);
+  const parts: string[] = [];
+
+  const visit = (selection: SelectedModifierTypes) => {
+    const group = lookup.get(selection.groupId);
+    const groupName = group?.name ?? selection.groupId;
+    const optionLabels = selection.selectedOptions.map((option) => {
+      const optionMeta = group?.items.find((item) => item.id === option.optionId);
+      const label = optionMeta?.name ?? option.optionId;
+      const quantityPrefix = option.quantity > 1 ? `${option.quantity}x ` : "";
+      if (Array.isArray(option.children)) {
+        option.children.forEach((child) => visit(child));
+      }
+      return `${quantityPrefix}${label}`;
+    });
+
+    if (optionLabels.length > 0) {
+      parts.push(`${groupName}: ${optionLabels.join(", ")}`);
+    }
+  };
+
+  selections.forEach((selection) => visit(selection));
+
+  return parts.join(" | ") || undefined;
+};
+
+const calculateModifierSelectionsTotal = (
+  product: { modifiers?: Modifier[] | null | undefined },
+  selections: SelectedModifierTypes[]
+): number => {
+  if (!Array.isArray(selections) || selections.length === 0) return 0;
+  if (!Array.isArray(product.modifiers) || product.modifiers.length === 0) {
+    return 0;
+  }
+
+  const lookup = buildModifierLookup(product.modifiers);
+
+  const computeGroupTotal = (
+    selection: SelectedModifierTypes,
+    multiplier: number
+  ): number => {
+    const group = lookup.get(selection.groupId);
+    if (!group) return 0;
+
+    return selection.selectedOptions.reduce((sum, optionSelection) => {
+      const option = group.items.find((item) => item.id === optionSelection.optionId);
+      const quantity = Math.max(optionSelection.quantity ?? 1, 1);
+      const optionUnitPrice =
+        option && (typeof option.price === "string" || typeof option.price === "number")
+          ? toPriceNumber(option.price)
+          : 0;
+      const optionTotal = optionUnitPrice * quantity * multiplier;
+
+      const childrenTotal = Array.isArray(optionSelection.children)
+        ? optionSelection.children.reduce((childSum, childSelection) => {
+            const childLink = option?.childGroups?.find(
+              (link) => link.groupId === childSelection.groupId
+            );
+            const nextMultiplier = childLink
+              ? multiplier * (childLink.applyPerParentQuantity ? quantity : 1)
+              : multiplier;
+            return childSum + computeGroupTotal(childSelection, nextMultiplier);
+          }, 0)
+        : 0;
+
+      return sum + optionTotal + childrenTotal;
+    }, 0);
+  };
+
+  return selections.reduce(
+    (total, selection) => total + computeGroupTotal(selection, 1),
+    0
+  );
 };
 
 const mapApiItemToCartLine = (item: ApiCartItem): CartLineItem => {
   const unitPrice = parseAmount(item.price);
   const totalPrice = parseAmount(item.total);
-  const resolvedPrice =
-    unitPrice > 0
-      ? unitPrice
-      : totalPrice > 0 && item.quantity > 0
-        ? totalPrice / item.quantity
-        : 0;
+  const derivedUnitPrice =
+    totalPrice > 0 && item.quantity > 0 ? totalPrice / item.quantity : 0;
+
+  let resolvedPrice = unitPrice;
+  if (derivedUnitPrice > 0) {
+    if (unitPrice <= 0) {
+      resolvedPrice = derivedUnitPrice;
+    } else {
+      const delta = Math.abs(derivedUnitPrice - unitPrice);
+      if (delta > 0.009) {
+        resolvedPrice = derivedUnitPrice;
+      }
+    }
+  }
 
   return {
     cartId: item.id,
@@ -119,34 +274,49 @@ const mapApiItemToCartLine = (item: ApiCartItem): CartLineItem => {
       item.imageUrl ||
       resolveProductImage(item) ||
       DEFAULT_FALLBACK_IMAGE,
-    category: "signature",
-    spiceLevel: 0,
     quantity: item.quantity,
-    options: {
-      spiceLevel: 0,
-      extraToppings: [],
-      specialInstructions: item.specialInstructions ?? "",
-    },
+    selectionsText: formatCartSelections(item.selections),
+    specialInstructions: item.specialInstructions ?? undefined,
   };
 };
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const queryClient = useQueryClient();
-
   const organizationSlug = ORGANIZATION_SLUG || null;
-  const [locationId, setLocationId] = useState<string | null>(null);
+  const [locationId, setLocationId] = useState<string | null>(() =>
+    CONFIGURED_LOCATION_ID || null
+  );
   const [isResolvingLocation, setIsResolvingLocation] = useState<boolean>(
-    () => Boolean(organizationSlug)
+    () => Boolean(!CONFIGURED_LOCATION_ID && organizationSlug)
   );
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [apiEnabled, setApiEnabled] = useState(IS_API_CONFIGURED);
 
   useEffect(() => {
+    if (CONFIGURED_LOCATION_ID) {
+      if (locationId !== CONFIGURED_LOCATION_ID) {
+        setLocationId(CONFIGURED_LOCATION_ID);
+      }
+      setLocationError(null);
+      setIsResolvingLocation(false);
+      setApiEnabled(IS_API_CONFIGURED);
+      return;
+    }
+
     if (!organizationSlug) {
       if (locationId !== null) {
         setLocationId(null);
       }
       setLocationError(null);
       setIsResolvingLocation(false);
+      setApiEnabled(IS_API_CONFIGURED);
+      return;
+    }
+
+    if (!IS_API_CONFIGURED) {
+      setLocationId(null);
+      setLocationError(API_SETUP_MESSAGE);
+      setIsResolvingLocation(false);
+      setApiEnabled(false);
       return;
     }
 
@@ -166,6 +336,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       let resolvedId: string | null = null;
       let failure: unknown = null;
+      let unauthorized = false;
 
       try {
         const location = await fetchLocation(slug);
@@ -174,9 +345,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         failure = error;
+        unauthorized = isUnauthorizedError(error);
       }
 
-      if (!resolvedId) {
+      if (!resolvedId && !unauthorized) {
         try {
           const merchant = await fetchMerchant(slug);
           const candidate =
@@ -194,6 +366,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           }
         } catch (error) {
           failure = error;
+          unauthorized = unauthorized || isUnauthorizedError(error);
         }
       }
 
@@ -206,8 +379,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setLocationError(null);
       } else if (failure) {
         setLocationId(null);
-        setLocationError(toErrorMessage(failure));
-        console.error("[cart] failed to resolve location", failure);
+        const message = toErrorMessage(failure);
+        const finalMessage = unauthorized
+          ? `${message}. ${API_SETUP_MESSAGE}`
+          : message;
+        setLocationError(finalMessage);
+        setApiEnabled((prev) => (unauthorized ? false : prev));
+        const logFn = unauthorized ? console.warn : console.error;
+        logFn("[cart] failed to resolve location", failure);
       } else {
         setLocationId(null);
         setLocationError("Unable to resolve location from configuration.");
@@ -224,10 +403,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [organizationSlug, locationId]);
 
   const preferApi = Boolean(locationId) && !isResolvingLocation;
-  const [apiEnabled, setApiEnabled] = useState(preferApi);
 
   useEffect(() => {
-    if (preferApi) {
+    if (preferApi && IS_API_CONFIGURED) {
       setApiEnabled(true);
     }
   }, [preferApi]);
@@ -243,16 +421,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [isMutating, setIsMutating] = useState(false);
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
 
-  const storageKey = useMemo(
-    () => (locationId ? storageKeyForLocation(locationId) : null),
-    [locationId]
-  );
-
   const {
     cart: apiCart,
     cartId: hookCartId,
     isLoading: cartQueryLoading,
     setCartIdState: setHookCartId,
+    mutate: mutateCartResource,
   } = useCartResource({
     locationId: locationId ?? undefined,
     shouldFetch: usingApi,
@@ -279,15 +453,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [cartId, sessionCartId, setHookCartId, usingApi]);
 
   useEffect(() => {
-    if (!usingApi || !storageKey) return;
+    if (!usingApi || !locationId) return;
 
-    if (typeof window === "undefined") return;
-
-    const storedId = locationId ? getStoredCartId(locationId) : null;
+    const storedId =
+      getPersistedCartId(locationId, String(DEFAULT_FULFILLMENT_METHOD)) ||
+      null;
     if (storedId) {
       setCartId(storedId);
     }
-  }, [locationId, storageKey, usingApi]);
+  }, [locationId, usingApi]);
 
   useEffect(() => {
     if (!usingApi) {
@@ -300,24 +474,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (!locationId) return;
 
       if (cart) {
-        queryClient.setQueryData(["cart", locationId, cart.id], cart);
+        mutateCartResource(cart, false);
         setCartId(cart.id);
         setHookCartId(cart.id);
         setLocalItems(cart.items.map(mapApiItemToCartLine));
-        if (storageKey && typeof window !== "undefined") {
-          setStoredCartId(locationId, cart.id);
-        }
+        persistCartId(
+          locationId,
+          cart.id,
+          String(DEFAULT_FULFILLMENT_METHOD)
+        );
       } else if (cartId) {
-        queryClient.removeQueries({ queryKey: ["cart", locationId, cartId] });
-        if (storageKey && typeof window !== "undefined") {
-          setStoredCartId(locationId, null);
-        }
+        mutateCartResource(undefined, false);
+        removeCartCartId(locationId, String(DEFAULT_FULFILLMENT_METHOD));
         setCartId(null);
         setHookCartId(null);
         setLocalItems([]);
       }
     },
-    [cartId, locationId, queryClient, setHookCartId, storageKey]
+    [cartId, locationId, mutateCartResource, setHookCartId]
   );
 
   const seedLocalCartFromApi = useCallback(() => {
@@ -353,8 +527,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
 
     let persistedId: string | null = null;
-    if (storageKey && typeof window !== "undefined") {
-      persistedId = getStoredCartId(locationId);
+    if (locationId) {
+      persistedId =
+        getPersistedCartId(locationId, String(DEFAULT_FULFILLMENT_METHOD)) ||
+        null;
     }
 
     setIsMutating(true);
@@ -388,31 +564,76 @@ export function CartProvider({ children }: { children: ReactNode }) {
     locationId,
     refreshCart,
     sessionCartId,
-    storageKey,
     usingApi,
   ]);
 
   const fallbackAddToCart = useCallback(
-    (item: MenuItem & { options: ItemOptions }) => {
+    (request: AddToCartRequest) => {
+      const { product, quantity, selections, specialInstructions } = request;
+      const productWithModifiers = {
+        modifiers: (product as { modifiers?: Modifier[] | null }).modifiers,
+      };
+      const selectionSummary = formatClientSelections(
+        productWithModifiers,
+        selections
+      );
+      const specialInstructionsTrimmed = specialInstructions
+        ? specialInstructions.trim()
+        : undefined;
+      const rawPriceCandidate =
+        (product as { displayPrice?: string | number | null }).displayPrice ??
+        (product as { price?: string | number | null }).price;
+      const basePrice = toPriceNumber(
+        typeof rawPriceCandidate === "string" || typeof rawPriceCandidate === "number"
+          ? rawPriceCandidate
+          : undefined
+      );
+      const modifiersPrice = calculateModifierSelectionsTotal(
+        productWithModifiers,
+        selections
+      );
+      const unitPriceRaw = basePrice + modifiersPrice;
+      const resolvedPrice = Number.isFinite(unitPriceRaw)
+        ? Math.round(unitPriceRaw * 100) / 100
+        : basePrice;
+      const images = (product as { images?: string[] | null }).images ?? [];
+      const primaryImage =
+        (Array.isArray(images) && images.length > 0 ? images[0] : undefined) ??
+        DEFAULT_FALLBACK_IMAGE;
+
       setLocalItems((prevItems) => {
         const existing = prevItems.find(
           (line) =>
-            line.id === item.id &&
-            JSON.stringify(line.options) === JSON.stringify(item.options)
+            line.id === product.id &&
+            line.selectionsText === selectionSummary &&
+            line.specialInstructions === specialInstructionsTrimmed
         );
+
         if (existing) {
           return prevItems.map((line) =>
             line.cartId === existing.cartId
-              ? { ...line, quantity: line.quantity + 1 }
+              ? {
+                  ...line,
+                  quantity: line.quantity + quantity,
+                  price: resolvedPrice,
+                }
               : line
           );
         }
 
         const cartItem: CartLineItem = {
-          ...item,
-          cartId: `${item.id}-${Date.now()}`,
-          quantity: 1,
+          cartId: `${product.id}-${Date.now()}`,
+          id: product.id,
+          name: product.name,
+          description:
+            (product as { description?: string | null }).description ?? "",
+          image: primaryImage,
+          price: resolvedPrice,
+          quantity,
+          selectionsText: selectionSummary,
+          specialInstructions: specialInstructionsTrimmed,
         };
+
         return [...prevItems, cartItem];
       });
     },
@@ -420,43 +641,40 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   const addToCart = useCallback(
-    async (item: MenuItem & { options: ItemOptions }) => {
+    async (request: AddToCartRequest) => {
       setError(null);
 
       if (!usingApi) {
-        fallbackAddToCart(item);
+        fallbackAddToCart(request);
         setIsCartOpen(true);
         return;
       }
 
       const targetCartId = await ensureCart();
       if (!targetCartId) {
-        fallbackAddToCart(item);
+        fallbackAddToCart(request);
         setIsCartOpen(true);
         return;
       }
 
       const activeLocationId = locationId;
       if (!activeLocationId) {
-        fallbackAddToCart(item);
+        fallbackAddToCart(request);
         setIsCartOpen(true);
         return;
       }
 
       setIsMutating(true);
       try {
-        const payloadSpecialInstructions = buildSpecialInstructions(
-          item.options
-        );
         const response = await storefrontClient.cart.addItem(
           activeLocationId,
           targetCartId,
           {
-            productId: item.apiProduct?.id ?? item.id,
-            quantity: 1,
-            specialInstructions: payloadSpecialInstructions ?? "",
-            itemUnavailableAction: ItemUnavailableActions.REMOVE_ITEM,
-            selections: [],
+            productId: request.product.id,
+            quantity: request.quantity,
+            specialInstructions: request.specialInstructions?.trim() ?? "",
+            itemUnavailableAction: request.itemUnavailableAction,
+            selections: request.selections,
           }
         );
 
@@ -469,7 +687,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setIsCartOpen(true);
       } catch (err) {
         handleApiFailure(err);
-        fallbackAddToCart(item);
+        fallbackAddToCart(request);
         setIsCartOpen(true);
       } finally {
         setIsMutating(false);
@@ -599,19 +817,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [items]
   );
 
-  const fallbackSubtotal = useMemo(
+  const lineItemsTotal = useMemo(
     () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
     [items]
-  );
-
-  const fallbackTax = useMemo(
-    () => fallbackSubtotal * NYC_TAX_RATE,
-    [fallbackSubtotal]
-  );
-
-  const fallbackTotal = useMemo(
-    () => fallbackSubtotal + fallbackTax,
-    [fallbackSubtotal, fallbackTax]
   );
 
   const itemCount = useMemo(() => {
@@ -628,35 +836,32 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const subtotal = useMemo(() => {
     if (usingApi && apiCart) {
       const apiSubtotal = parseAmount(apiCart.subTotal);
-      if (fallbackSubtotal > 0 && apiSubtotal <= 0) {
-        return fallbackSubtotal;
+      const hasValidApiSubtotal = Number.isFinite(apiSubtotal) && apiSubtotal > 0;
+      if (hasValidApiSubtotal) {
+        const delta = Math.abs(apiSubtotal - lineItemsTotal);
+        if (delta <= 0.01) {
+          return apiSubtotal;
+        }
       }
-      return apiSubtotal;
     }
-    return fallbackSubtotal;
-  }, [apiCart, fallbackSubtotal, usingApi]);
-
-  const tax = useMemo(() => {
-    if (usingApi && apiCart) {
-      const apiTax = parseAmount(apiCart.taxTotal);
-      if (fallbackTax > 0 && apiTax <= 0) {
-        return fallbackTax;
-      }
-      return apiTax;
-    }
-    return fallbackTax;
-  }, [apiCart, fallbackTax, usingApi]);
+    return lineItemsTotal;
+  }, [apiCart, lineItemsTotal, usingApi]);
 
   const total = useMemo(() => {
     if (usingApi && apiCart) {
-      const apiTotal = parseAmount(apiCart.orderTotalWithServiceFee);
-      if (fallbackTotal > 0 && apiTotal <= 0) {
-        return fallbackTotal;
+      const apiSubtotal = parseAmount(apiCart.subTotal);
+      const hasValidApiSubtotal = Number.isFinite(apiSubtotal) && apiSubtotal > 0;
+      if (hasValidApiSubtotal) {
+        const delta = Math.abs(apiSubtotal - lineItemsTotal);
+        if (delta <= 0.01) {
+          return apiSubtotal;
+        }
       }
-      return apiTotal;
     }
-    return fallbackTotal;
-  }, [apiCart, fallbackTotal, usingApi]);
+    return lineItemsTotal;
+  }, [apiCart, lineItemsTotal, usingApi]);
+
+  const tax = 0;
 
   const checkoutUrl = useMemo(() => {
     const raw =

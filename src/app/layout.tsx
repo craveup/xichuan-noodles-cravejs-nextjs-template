@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "sonner";
 
 // Providers & Components
 import { CartProvider } from "./providers/cart-provider";
@@ -48,17 +49,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+    <html lang="en" suppressHydrationWarning>
+      <head>
         <script
           dangerouslySetInnerHTML={{ __html: themeInitializerScript }}
         />
+      </head>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
         <ErrorBoundary>
           <XichuanQueryClientProvider>
             <RestaurantThemeProvider defaultThemePath="/themes/leclerc-theme.json">
               <CartProvider>{children}</CartProvider>
+              <Toaster richColors position="top-center" />
             </RestaurantThemeProvider>
           </XichuanQueryClientProvider>
         </ErrorBoundary>
@@ -66,3 +70,4 @@ export default function RootLayout({
     </html>
   );
 }
+

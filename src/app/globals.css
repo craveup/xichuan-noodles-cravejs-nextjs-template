@@ -131,21 +131,3 @@
   }
 }
 
-.scrollbar-custom {
-  scrollbar-width: thin;
-  scrollbar-color: #888 transparent;
-}
-
-.scrollbar-custom::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.scrollbar-custom::-webkit-scrollbar-thumb {
-  background-color: #888;
-  border-radius: 10px;
-}
-
-.scrollbar-custom::-webkit-scrollbar-track {
-  background: transparent;
-}

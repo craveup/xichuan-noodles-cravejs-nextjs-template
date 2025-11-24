@@ -6,6 +6,8 @@ import { ClientIcon } from "./client-icon";
 
 export function XichuanHero() {
   const { getThemeClass } = useThemeClasses();
+  const sharedButtonClasses =
+    "h-12 px-8 min-w-[140px] rounded-2xl font-semibold inline-flex items-center justify-center";
 
   return (
     <section className="relative h-[90vh] flex items-center justify-center overflow-hidden">
@@ -43,7 +45,7 @@ export function XichuanHero() {
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button
             size="lg"
-            className={`${getThemeClass(
+            className={`${sharedButtonClasses} ${getThemeClass(
               "hero-cta"
             )} text-white dark:text-white hover:bg-[hsl(var(--brand-accent))]/90 transition-all duration-200`}
             style={{ backgroundColor: "hsl(var(--brand-accent))" }}
@@ -65,7 +67,7 @@ export function XichuanHero() {
           <Button
             size="lg"
             variant="outline"
-            className="text-white border-white/80 bg-transparent dark:bg-transparent hover:bg-white/10 dark:hover:bg-white/20 hover:text-white focus-visible:ring-white/40 focus-visible:border-white/60"
+            className={`${sharedButtonClasses} bg-white/90 text-foreground dark:border-white hover:bg-white hover:text-foreground dark:text-white`}
             onClick={() =>
               document
                 .getElementById("about")

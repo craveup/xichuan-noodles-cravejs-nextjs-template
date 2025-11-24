@@ -5,9 +5,10 @@ import {
   startOrderingSession,
   type StartOrderingSessionRequest,
 } from "@/lib/api/ordering-session";
-import { getStoredCartId, setStoredCartId } from "@/lib/cart-storage";
+import { getCartId, setCartId } from "@/lib/local-storage";
 import { toErrorMessage } from "@/lib/api/error-utils";
 import { FulfilmentMethods } from "@craveup/storefront-sdk";
+import { DEFAULT_FULFILLMENT_METHOD } from "@/constants";
 
 type UseOrderingSessionResult = {
   cartId: string | null;
@@ -24,8 +25,6 @@ type OrderingSessionPayload = StartOrderingSessionRequest & {
   returnUrl?: string;
 };
 
-const DEFAULT_FULFILLMENT_METHOD = FulfilmentMethods.TAKEOUT;
-
 export function useOrderingSession(
   locationId?: string | null,
   options: UseOrderingSessionOptions = {},
@@ -41,7 +40,9 @@ export function useOrderingSession(
   );
 
   const [cartId, setCartIdState] = useState<string | null>(() =>
-    normalizedLocationId ? getStoredCartId(normalizedLocationId) : null,
+    normalizedLocationId
+      ? getCartId(normalizedLocationId, fulfillmentMethod) || null
+      : null,
   );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -57,7 +58,8 @@ export function useOrderingSession(
       return;
     }
 
-    const storedId = getStoredCartId(normalizedLocationId);
+    const storedId =
+      getCartId(normalizedLocationId, fulfillmentMethod) || null;
     if (storedId) {
       if (storedId !== cartId) {
         setCartIdState(storedId);
@@ -80,7 +82,7 @@ export function useOrderingSession(
       setOrderingError("");
 
       const storedCartId =
-        getStoredCartId(normalizedLocationId) ?? undefined;
+        getCartId(normalizedLocationId, fulfillmentMethod) || undefined;
       const returnUrl =
         typeof window !== "undefined" ? window.location.origin : undefined;
 
@@ -105,7 +107,7 @@ export function useOrderingSession(
 
         const resolvedCartId = newCartId ?? storedCartId ?? null;
         if (resolvedCartId) {
-          setStoredCartId(normalizedLocationId, resolvedCartId);
+          setCartId(normalizedLocationId, resolvedCartId, fulfillmentMethod);
         }
         setCartIdState(resolvedCartId);
         setOrderingError(errorMessage ?? "");

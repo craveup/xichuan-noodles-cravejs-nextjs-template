@@ -1,361 +1,170 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Info, Flame } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import Image from "next/image";
+import { MouseEvent } from "react";
+import { Plus, Loader2, Flame } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Slider } from "@/components/ui/slider";
-
-import { useCart } from "../providers/cart-provider";
-import { MenuItem } from "../types";
+import type { MenuItem } from "../types";
+import type { Product } from "@/lib/api/types";
+import { formatMoney, Currencies } from "@/lib/currency";
 
 interface XichuanMenuItemProps {
   item: MenuItem;
+  onCustomize: (productId: string) => void;
+  onQuickAdd: (product: Product) => Promise<void>;
+  isAdding?: boolean;
 }
 
-export function XichuanMenuItem({ item }: XichuanMenuItemProps) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedOptions, setSelectedOptions] = useState({
-    spiceLevel: item.spiceLevel || 1,
-    noodleType: "hand-pulled" as "hand-pulled" | "wide" | "thin",
-    extraToppings: [] as string[],
-    specialInstructions: "",
-  });
-  const { addToCart } = useCart();
-  const normalizedCategory = item.category.toLowerCase();
-  const showNoodleOptions =
-    normalizedCategory.includes("noodle") ||
-    normalizedCategory.includes("signature");
+const SPICE_LABELS = ["Mild", "Medium", "Spicy", "Very Spicy", "Fire Dragon"];
+const SPICE_COLORS = [
+  "text-green-600",
+  "text-yellow-600",
+  "text-orange-500",
+  "text-red-500",
+  "text-red-700",
+];
 
-  const handleAddToCart = async () => {
-    try {
-      setIsSubmitting(true);
-      await addToCart({
-        ...item,
-        options: selectedOptions,
-      });
-      setIsModalOpen(false);
-    } finally {
-      setIsSubmitting(false);
+export function XichuanMenuItem({
+  item,
+  onCustomize,
+  onQuickAdd,
+  isAdding = false,
+}: XichuanMenuItemProps) {
+  const product = item.apiProduct;
+  const hasModifiers =
+    (product?.modifiers?.length ?? 0) > 0 ||
+    (product?.modifierIds?.length ?? 0) > 0;
+
+  const handleCardClick = () => {
+    if (!product) return;
+    onCustomize(product.id);
+  };
+
+  const handleAddClick = async (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+
+    if (!product) {
+      return;
     }
-  };
 
-  const calculatePrice = () => {
-    let price = item.price;
-    if (selectedOptions.extraToppings.length > 0) {
-      price += selectedOptions.extraToppings.length * 2.0;
+    if (hasModifiers) {
+      onCustomize(product.id);
+      return;
     }
-    return price;
+
+    await onQuickAdd(product);
   };
 
-  const availableToppings = [
-    "Extra Beef",
-    "Extra Pork",
-    "Soft Boiled Egg",
-    "Extra Vegetables",
-    "Pickled Mustard Greens",
-    "Bean Sprouts",
-    "Extra Chili Oil",
-  ];
+  const rawDisplayPrice =
+    product?.displayPrice ??
+    (typeof product?.price === "string" ? product.price : null);
 
-  const getSpiceLevelText = (level: number) => {
-    const levels = ["Mild", "Medium", "Spicy", "Very Spicy", "Fire Dragon"];
-    return levels[level] || "Mild";
-  };
+  const numericPrice =
+    typeof product?.price === "number"
+      ? product.price
+      : typeof product?.price === "string"
+      ? Number.parseFloat(product.price)
+      : item.price;
 
-  const getSpiceLevelColor = (level: number) => {
-    const colors = [
-      "text-green-600",
-      "text-yellow-600",
-      "text-orange-600",
-      "text-red-600",
-      "text-red-800",
-    ];
-    return colors[level] || "text-green-600";
-  };
+  const priceLabel = (() => {
+    if (typeof rawDisplayPrice === "string") {
+      const trimmed = rawDisplayPrice.trim();
+      if (trimmed.length > 0) {
+        if (!trimmed.includes(" ") && !trimmed.includes("-")) {
+          const formatted = formatMoney(trimmed, Currencies.USD);
+          if (formatted.trim().length > 0) {
+            return formatted;
+          }
+        }
+        return trimmed;
+      }
+    }
+
+    const formattedNumeric = formatMoney(numericPrice, Currencies.USD);
+    if (formattedNumeric.trim().length > 0) {
+      return formattedNumeric;
+    }
+
+    return `$${
+      Number.isFinite(numericPrice) ? numericPrice.toFixed(2) : "0.00"
+    }`;
+  })();
+
+  const description = item.description ?? "";
+  const parentheticalNotes = Array.from(description.matchAll(/\(([^)]+)\)/g))
+    .map((match) => match[1]?.trim())
+    .filter(Boolean) as string[];
+  const mainDescription = description.replace(/\s*\([^)]*\)/g, "").trim();
 
   return (
-    <>
-      <Card
-        className="overflow-hidden hover:shadow-lg transition-shadow"
-        role="article"
-        aria-labelledby={`item-${item.id}-name`}
-        aria-describedby={`item-${item.id}-description`}
-      >
-        <div className="relative aspect-square">
-          <img
-            src={item.image}
-            alt={`${item.name} - ${item.description}`}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-          {item.isSignature && (
-            <Badge
-              className="absolute top-4 left-4 text-white dark:text-white"
-              style={{ backgroundColor: "hsl(var(--brand-accent))" }}
-              aria-label="Signature dish"
-            >
-              Signature
-            </Badge>
+    <Card
+      className="flex h-full flex-col gap-0 overflow-hidden transition-shadow hover:shadow-lg cursor-pointer py-0"
+      onClick={product ? handleCardClick : undefined}
+      role="article"
+      aria-labelledby={`item-${item.id}-name`}
+    >
+      <div className="relative w-full h-72 sm:h-80 md:h-96 lg:h-[520px] overflow-hidden rounded-t-xl bg-muted">
+        <Image src={item.image} alt={item.name} fill className="object-cover" />
+      </div>
+
+      <CardContent className="flex flex-1 flex-col p-6">
+        <div className="space-y-3">
+          <h3
+            id={`item-${item.id}-name`}
+            className="text-xl font-semibold text-foreground"
+          >
+            {item.name}
+          </h3>
+          {mainDescription && (
+            <p className="text-sm text-muted-foreground line-clamp-3 min-h-10">
+              {mainDescription}
+            </p>
           )}
-          {item.isPopular && (
-            <Badge
-              className="absolute top-4 right-4 text-white dark:text-white"
-              style={{ backgroundColor: "hsl(var(--brand-accent))" }}
-              aria-label="Popular dish"
-            >
-              Popular
-            </Badge>
+          {parentheticalNotes.length > 0 && (
+            <div className="space-y-0">
+              {parentheticalNotes.map((note, index) => (
+                <p
+                  key={`${item.id}-note-${index}`}
+                  className="text-normal font-semibold text-red-500"
+                >
+                  {note}
+                </p>
+              ))}
+            </div>
           )}
         </div>
 
-        <CardContent className="p-6">
-          <div className="mb-4">
-            <h3
-              id={`item-${item.id}-name`}
-              className="text-xl font-semibold text-foreground mb-2"
-            >
-              {item.name}
-            </h3>
-            <p
-              id={`item-${item.id}-description`}
-              className="text-muted-foreground text-sm mb-3"
-            >
-              {item.description}
-            </p>
+        <div className="mt-auto flex items-center justify-between pt-6">
+          <span
+            className="text-2xl font-bold"
+            style={{ color: "hsl(var(--brand-accent))" }}
+          >
+            {priceLabel}
+          </span>
 
-            {/* Dietary and spice info */}
-            <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
-              {item.isSpicy && (
-                <div className="flex items-center gap-1">
-                  <Flame
-                    className={`h-3 w-3 ${getSpiceLevelColor(item.spiceLevel)}`}
-                  />
-                  <span className={getSpiceLevelColor(item.spiceLevel)}>
-                    {getSpiceLevelText(item.spiceLevel)}
-                  </span>
-                </div>
-              )}
-              {item.isVegetarian && (
-                <Badge variant="outline" className="text-xs">
-                  Vegetarian
-                </Badge>
-              )}
-              {item.isVegan && (
-                <Badge variant="outline" className="text-xs">
-                  Vegan
-                </Badge>
-              )}
-            </div>
-          </div>
+          <Button
+            onClick={handleAddClick}
+            className="rounded-full h-11 w-11 p-0 text-white dark:text-white cursor-pointer"
+            style={{ backgroundColor: "hsl(var(--brand-accent))" }}
+            aria-label={hasModifiers ? "Customize item" : "Add to cart"}
+            disabled={isAdding}
+          >
+            {isAdding ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
 
-          <div className="flex items-center justify-between">
-            <span className="text-2xl font-bold text-foreground">
-              ${item.price.toFixed(2)}
-            </span>
-            <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground hover:text-foreground"
-                onClick={() => setIsModalOpen(true)}
-                aria-label={`View details and customize ${item.name}`}
-              >
-                <Info className="h-4 w-4" aria-hidden="true" />
-              </Button>
-              <Button
-                onClick={() => setIsModalOpen(true)}
-                className="text-white dark:text-white"
-                style={{ backgroundColor: "hsl(var(--brand-accent))" }}
-                aria-label={`Add ${item.name} to cart for $${item.price.toFixed(
-                  2
-                )}`}
-              >
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                Add to Cart
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Customization Modal */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto scrollbar-custom">
-          <DialogHeader>
-            <DialogTitle>{item.name}</DialogTitle>
-            <DialogDescription>
-              Customize your order to your taste
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-6 py-4">
-            {/* Dish image and description */}
-            <div className="flex gap-4">
-              <img
-                src={item.image}
-                alt={item.name}
-                className="w-24 h-24 object-cover rounded-lg"
-              />
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  {item.description}
-                </p>
-                {item.ingredients && (
-                  <p className="text-xs text-muted-foreground/80 mt-2">
-                    Ingredients: {item.ingredients.join(", ")}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Spice Level */}
-            <div className="space-y-3">
-              <Label className="text-base font-semibold">Spice Level</Label>
-              <div className="px-2">
-                <Slider
-                  value={[selectedOptions.spiceLevel]}
-                  onValueChange={(value) =>
-                    setSelectedOptions({
-                      ...selectedOptions,
-                      spiceLevel: value[0],
-                    })
-                  }
-                  max={4}
-                  min={0}
-                  step={1}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-sm text-muted-foreground mt-1">
-                  <span>Mild</span>
-                  <span
-                    className={getSpiceLevelColor(selectedOptions.spiceLevel)}
-                  >
-                    {getSpiceLevelText(selectedOptions.spiceLevel)}
-                  </span>
-                  <span>Fire Dragon</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Noodle Type */}
-            {showNoodleOptions ? (
-              <div className="space-y-3">
-                <Label className="text-base font-semibold">Noodle Type</Label>
-                <RadioGroup
-                  value={selectedOptions.noodleType}
-                  onValueChange={(value) =>
-                    setSelectedOptions({
-                      ...selectedOptions,
-                      noodleType: value as "hand-pulled" | "wide" | "thin",
-                    })
-                  }
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="hand-pulled" id="hand-pulled" />
-                    <Label htmlFor="hand-pulled" className="font-normal">
-                      Hand-Pulled (Traditional)
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="wide" id="wide" />
-                    <Label htmlFor="wide" className="font-normal">
-                      Wide Belt Noodles
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="thin" id="thin" />
-                    <Label htmlFor="thin" className="font-normal">
-                      Thin Noodles
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
-            ) : null}
-
-            {/* Extra Toppings */}
-            <div className="space-y-3">
-              <Label className="text-base font-semibold">
-                Extra Toppings (+$2.00 each)
-              </Label>
-              <div className="grid grid-cols-2 gap-2">
-                {availableToppings.map((topping) => (
-                  <div key={topping} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={topping}
-                      checked={selectedOptions.extraToppings.includes(topping)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedOptions({
-                            ...selectedOptions,
-                            extraToppings: [
-                              ...selectedOptions.extraToppings,
-                              topping,
-                            ],
-                          });
-                        } else {
-                          setSelectedOptions({
-                            ...selectedOptions,
-                            extraToppings: selectedOptions.extraToppings.filter(
-                              (t) => t !== topping
-                            ),
-                          });
-                        }
-                      }}
-                    />
-                    <Label htmlFor={topping} className="font-normal text-sm">
-                      {topping}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Price summary */}
-            <div className="border-t pt-4">
-              <div className="flex justify-between items-center">
-                <span className="text-lg font-semibold">Total</span>
-                <span
-                  className="text-2xl font-bold"
-                  style={{ color: "hsl(var(--brand-accent))" }}
-                >
-                  ${calculatePrice().toFixed(2)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              onClick={() => setIsModalOpen(false)}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAddToCart}
-              className="flex-1 text-white dark:text-white"
-              style={{ backgroundColor: "hsl(var(--brand-accent))" }}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Adding..." : "Add to Cart"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+        {hasModifiers && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            Customizable · Tap to choose options
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
