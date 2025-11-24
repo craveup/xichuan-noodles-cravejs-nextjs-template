@@ -95,7 +95,7 @@ export function XichuanMenuItem({
       role="article"
       aria-labelledby={`item-${item.id}-name`}
     >
-      <div className="relative w-full h-72 sm:h-80 md:h-96 lg:h-[520px] overflow-hidden rounded-t-xl bg-muted">
+      <div className="relative w-full h-56 sm:h-64 md:h-72 lg:h-[360px] overflow-hidden rounded-t-xl bg-muted">
         <Image src={item.image} alt={item.name} fill className="object-cover" />
       </div>
 
