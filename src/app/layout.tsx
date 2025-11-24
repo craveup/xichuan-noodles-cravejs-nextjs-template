@@ -23,7 +23,27 @@ const geistMono = Geist_Mono({
 // Page Metadata
 export const metadata: Metadata = {
   title: "Xichuan Noodles - Authentic Xi'an Hand-Pulled Noodles",
-  description: "Experience authentic Xi'an cuisine with hand-pulled Biang Biang noodles, spicy beef dishes, and traditional Chinese dumplings. Order online for delivery or pickup.",
+  description:
+    "Experience authentic Xi'an cuisine with hand-pulled Biang Biang noodles, spicy beef dishes, and traditional Chinese dumplings. Order online for delivery or pickup.",
+  openGraph: {
+    title: "Xichuan Noodles - Authentic Xi'an Hand-Pulled Noodles",
+    description:
+      "A Crave.js storefront template showcasing Xichuan noodle culture with menu browsing, cart flow, and multi-location support.",
+    images: [
+      {
+        url: "/preview.png",
+        width: 1200,
+        height: 630,
+        alt: "Preview of the Xichuan Noodles storefront template",
+      },
+    ],
+  },
+  twitter: {
+    title: "Xichuan Noodles - Authentic Xi'an Hand-Pulled Noodles",
+    description:
+      "Launch a Crave.js storefront with Xichuan-branded menu browsing, cart flow, and multi-location experiences.",
+    images: ["/preview.png"],
+  },
 };
 
 const themeInitializerScript = `
@@ -51,9 +71,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script
-          dangerouslySetInnerHTML={{ __html: themeInitializerScript }}
-        />
+        <script dangerouslySetInnerHTML={{ __html: themeInitializerScript }} />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
@@ -70,4 +88,3 @@ export default function RootLayout({
     </html>
   );
 }
-
