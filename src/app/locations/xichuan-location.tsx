@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -301,10 +302,12 @@ export default function XichuanLocationsPage() {
                     className="overflow-hidden transition-shadow hover:shadow-lg flex flex-col gap-0 pt-0"
                   >
                     <div className="relative h-64 overflow-hidden rounded-t-xl">
-                      <img
+                      <Image
                         src={location.image ?? FALLBACK_LOCATION_IMAGE}
                         alt={location.name}
-                        className="h-full w-full object-cover"
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                       />
                       {location.isMainLocation && (
                         <Badge

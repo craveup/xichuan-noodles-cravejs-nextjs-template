@@ -42,54 +42,47 @@ export interface ButtonProps
 
 const LoadingButton = React.forwardRef<HTMLButtonElement, ButtonProps>(
   (
-    { className, variant, size, asChild = false, loading, children, ...props },
+    {
+      className,
+      variant,
+      size,
+      asChild = false,
+      loading = false,
+      disabled,
+      children,
+      ...props
+    },
     ref
   ) => {
+    const content = (
+      <>
+        {loading && (
+          <Loader2 className={cn("h-4 w-4 animate-spin", children && "mr-2")} />
+        )}
+        {children}
+      </>
+    );
+
     if (asChild) {
       return (
-        <Slot ref={ref} {...props}>
-          <>
-            {React.Children.map(
-              children as React.ReactElement<any>,
-              (child: React.ReactElement<any>) => {
-                return React.cloneElement(child, {
-                  className: cn(buttonVariants({ variant, size }), className),
-                  children: (
-                    <>
-                      {loading && (
-                        <Loader2
-                          className={cn(
-                            "h-4 w-4 animate-spin",
-                            children && "mr-2"
-                          )}
-                        />
-                      )}
-                      {child.props.children}
-                    </>
-                  ),
-                });
-              }
-            )}
-          </>
+        <Slot
+          ref={ref}
+          className={cn(buttonVariants({ variant, size }), className)}
+          {...props}
+        >
+          {content}
         </Slot>
       );
     }
 
     return (
       <button
-        className={cn(buttonVariants({ variant, size, className }))}
-        disabled={loading}
+        className={cn(buttonVariants({ variant, size }), className)}
+        disabled={disabled || loading}
         ref={ref}
         {...props}
       >
-        <>
-          {loading && (
-            <Loader2
-              className={cn("h-4 w-4 animate-spin", children && "mr-2")}
-            />
-          )}
-          {children}
-        </>
+        {content}
       </button>
     );
   }

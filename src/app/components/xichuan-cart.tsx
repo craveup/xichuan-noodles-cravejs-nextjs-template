@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -165,10 +166,12 @@ export function XichuanCart({ isOpen, onClose }: XichuanCartProps) {
                   >
                     <div className="flex w-full gap-4 sm:gap-5">
                       <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-muted ring-1 ring-border/70 shadow-[0_12px_30px_rgba(15,23,42,0.12)] dark:bg-muted/40 dark:ring-border/50 dark:shadow-none">
-                        <img
+                        <Image
                           src={item.image}
                           alt={item.name}
-                          className="h-full w-full object-cover"
+                          fill
+                          sizes="80px"
+                          className="object-cover"
                         />
                       </div>
 

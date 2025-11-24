@@ -2,8 +2,7 @@
 
 import Image from "next/image";
 import { MouseEvent } from "react";
-import { Plus, Loader2, Flame } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { MenuItem } from "../types";
@@ -16,15 +15,6 @@ interface XichuanMenuItemProps {
   onQuickAdd: (product: Product) => Promise<void>;
   isAdding?: boolean;
 }
-
-const SPICE_LABELS = ["Mild", "Medium", "Spicy", "Very Spicy", "Fire Dragon"];
-const SPICE_COLORS = [
-  "text-green-600",
-  "text-yellow-600",
-  "text-orange-500",
-  "text-red-500",
-  "text-red-700",
-];
 
 export function XichuanMenuItem({
   item,
