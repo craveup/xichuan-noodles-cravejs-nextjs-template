@@ -1,7 +1,10 @@
 "use client";
 
 import { useCart } from "../providers/cart-provider";
-import { useThemeClasses, useRestaurantTheme } from "@/hooks/use-restaurant-theme";
+import {
+  useThemeClasses,
+  useRestaurantTheme,
+} from "@/hooks/use-restaurant-theme";
 import { ClientIcon } from "./client-icon";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +24,7 @@ export function XichuanHeader({ onCartClick }: XichuanHeaderProps) {
     : "Switch to dark mode";
 
   return (
-    <header className="sticky top-0 z-50 bg-background border-b backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 bg-background border-b backdrop-blur supports-backdrop-filter:bg-background/60">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -48,27 +51,27 @@ export function XichuanHeader({ onCartClick }: XichuanHeaderProps) {
 
           {/* Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <a
+            <Link
               href="/#menu"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               aria-label="View our menu"
             >
               Menu
-            </a>
-            <a
+            </Link>
+            <Link
               href="/#about"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               aria-label="Learn about our story"
             >
               About
-            </a>
-            <a
+            </Link>
+            <Link
               href="/locations"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               aria-label="Find our locations"
             >
               Locations
-            </a>
+            </Link>
           </nav>
 
           {/* Cart and Actions */}

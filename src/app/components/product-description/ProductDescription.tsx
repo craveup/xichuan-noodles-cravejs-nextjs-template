@@ -17,7 +17,6 @@ import SpecialInstructions from "./SpecialInstructions";
 import { useCart } from "../../providers/cart-provider";
 import { cn } from "@/lib/utils";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { formatMoney, Currencies } from "@/lib/currency";
 import { Separator } from "@/components/ui/separator";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { toast } from "sonner";
@@ -96,23 +95,6 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
 
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const productImage = product.images?.[0] ?? imagePlaceholder;
-  const priceLabel = (() => {
-    const raw = product.displayPrice ?? product.price ?? "";
-    if (typeof raw === "string") {
-      const trimmed = raw.trim();
-      if (trimmed.length === 0) return "";
-      if (!trimmed.includes(" ") && !trimmed.includes("-")) {
-        const formatted = formatMoney(trimmed, Currencies.USD);
-        if (formatted.trim().length > 0) return formatted;
-      }
-      return trimmed;
-    }
-
-    const formattedNumeric = formatMoney(raw, Currencies.USD);
-    if (formattedNumeric.trim().length > 0) return formattedNumeric;
-
-    return "";
-  })();
 
   const { main: mainDescription, notes: parentheticalNotes } = useMemo(
     () => splitDescription(product.description ?? ""),
@@ -226,7 +208,6 @@ const ProductDescription = ({ product, onClose }: ProductDescriptionProps) => {
           <p className="text-3xl font-semibold text-foreground">
             {product.name}
           </p>
-
           {mainDescription && (
             <p className="mt-2 text-sm text-muted-foreground/80">
               {mainDescription}

@@ -67,7 +67,7 @@ export function useOrderingSession(
     } else if (cartId) {
       setCartIdState(null);
     }
-  }, [cartId, normalizedLocationId]);
+  }, [cartId, normalizedLocationId, fulfillmentMethod]);
 
   useEffect(() => {
     if (!normalizedLocationId) {
