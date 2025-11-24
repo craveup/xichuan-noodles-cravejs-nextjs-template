@@ -5,7 +5,9 @@ A streamlined Next.js 15 storefront template for showcasing a restaurant menu on
 ## Prerequisites
 
 - Node.js 18+
-- `NEXT_PUBLIC_CRAVEUP_API_KEY` and (optionally) `NEXT_PUBLIC_ORG_SLUG` environment variables
+- `NEXT_PUBLIC_CRAVEUP_API_KEY` Storefront API key
+- `NEXT_PUBLIC_LOCATION_ID` for the location whose menu you want to render
+- `NEXT_PUBLIC_ORG_SLUG` (optional) merchant slug for fetching additional metadata
 
 ## Installation
 

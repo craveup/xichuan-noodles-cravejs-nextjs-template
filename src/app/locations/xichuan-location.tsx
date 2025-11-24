@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -42,79 +43,8 @@ interface Location {
 const FALLBACK_LOCATION_IMAGE =
   "https://images.unsplash.com/photo-1529007196863-d07650a3f0ea?q=80&w=1200&auto=format&fit=crop";
 
-const fallbackLocations: Location[] = [
-  {
-    id: "chinatown",
-    name: "Xichuan Noodles Chinatown",
-    address: "88 Mott Street, New York, NY 10013",
-    neighborhood: "Chinatown",
-    phone: "(212) 555-8888",
-    hours: {
-      weekdays: "11:00 AM - 10:00 PM",
-      saturday: "11:00 AM - 11:00 PM",
-      sunday: "11:00 AM - 10:00 PM",
-    },
-    rating: 4.9,
-    reviewCount: 567,
-    features: [
-      "Dine In",
-      "Takeout",
-      "Delivery",
-      "Hand-Pulled Noodles",
-      "Authentic Xi&apos;an Cuisine",
-      "Late Night",
-    ],
-    image: FALLBACK_LOCATION_IMAGE,
-    isMainLocation: true,
-    orderingAvailable: true,
-    deliveryRadius: "3 miles",
-    pickupAvailable: true,
-  },
-  {
-    id: "flushing",
-    name: "Xichuan Noodles Flushing",
-    address: "136-20 Roosevelt Ave, Flushing, NY 11354",
-    neighborhood: "Flushing",
-    phone: "(718) 555-1368",
-    hours: {
-      weekdays: "11:00 AM - 9:30 PM",
-      saturday: "11:00 AM - 10:00 PM",
-      sunday: "11:00 AM - 9:30 PM",
-    },
-    rating: 4.8,
-    reviewCount: 423,
-    features: ["Dine In", "Takeout", "Delivery", "Family Style", "Parking"],
-    image: FALLBACK_LOCATION_IMAGE,
-    orderingAvailable: true,
-    deliveryRadius: "2.5 miles",
-    pickupAvailable: true,
-  },
-  {
-    id: "east-village",
-    name: "Xichuan Noodles East Village",
-    address: "23 St Marks Pl, New York, NY 10003",
-    neighborhood: "East Village",
-    phone: "(212) 555-2323",
-    hours: {
-      weekdays: "11:30 AM - 11:00 PM",
-      saturday: "11:30 AM - 12:00 AM",
-      sunday: "11:30 AM - 11:00 PM",
-    },
-    rating: 4.7,
-    reviewCount: 312,
-    features: [
-      "Takeout",
-      "Delivery",
-      "Late Night",
-      "Student Discount",
-      "Quick Service",
-    ],
-    image: FALLBACK_LOCATION_IMAGE,
-    orderingAvailable: true,
-    deliveryRadius: "2 miles",
-    pickupAvailable: true,
-  },
-];
+const getMapsUrl = (address: string) =>
+  `https://maps.google.com/maps?q=${encodeURIComponent(address)}`;
 
 export default function XichuanLocationsPage() {
   const {
@@ -129,6 +59,7 @@ export default function XichuanLocationsPage() {
   const resolvedLocationId = locationId ?? "";
   const resolvedSlug = organizationSlug ?? null;
   const preferApi = Boolean(resolvedLocationId);
+  const waitingForLocation = isResolvingLocation && !resolvedLocationId;
 
   const locationQuery = useQuery({
     queryKey: ["location-meta", resolvedLocationId],
@@ -147,17 +78,10 @@ export default function XichuanLocationsPage() {
     staleTime: 10 * 60 * 1000,
   });
 
-  const fallbackMap = useMemo(() => {
-    const map = new Map<string, Location>();
-    fallbackLocations.forEach((loc) => map.set(loc.id, loc));
-    return map;
-  }, []);
-
   const merchantLocations = useMemo<Location[]>(() => {
     if (!merchantQuery.data) return [];
 
     return merchantQuery.data.locations.map((loc) => {
-      const fallback = fallbackMap.get(loc.id);
       const methods = loc.methodsStatus ?? {};
       const methodFeatures = [
         methods.pickup && "Pickup",
@@ -166,37 +90,67 @@ export default function XichuanLocationsPage() {
         methods.roomService && "Room Service",
       ].filter(Boolean) as string[];
 
-      const hasActiveMethod = Object.values(methods).some((value) => Boolean(value));
-      const orderingAvailable = hasActiveMethod
-        ? true
-        : fallback?.orderingAvailable ?? false;
+      const hasActiveMethod = Object.values(methods).some((value) =>
+        Boolean(value)
+      );
+      const orderingAvailable = hasActiveMethod;
+
+      const extraFields = loc as unknown as {
+        rating?: number;
+        reviewCount?: number;
+        contactPhone?: string;
+        phoneNumber?: string;
+        deliveryRadius?: string;
+        restaurantName?: string;
+        isMainLocation?: boolean;
+      };
+      const rating =
+        typeof extraFields.rating === "number" ? extraFields.rating : undefined;
+      const reviewCount =
+        typeof extraFields.reviewCount === "number"
+          ? extraFields.reviewCount
+          : undefined;
+      const phone =
+        typeof extraFields.contactPhone === "string"
+          ? extraFields.contactPhone
+          : typeof extraFields.phoneNumber === "string"
+          ? extraFields.phoneNumber
+          : undefined;
 
       return {
         id: loc.id,
-        name: loc.restaurantDisplayName || fallback?.name || "Restaurant",
-        address: loc.addressString ?? fallback?.address,
-        neighborhood: fallback?.neighborhood,
-        phone: fallback?.phone,
-        hours: fallback?.hours,
-        rating: fallback?.rating,
-        reviewCount: fallback?.reviewCount,
-        features: methodFeatures.length > 0 ? methodFeatures : fallback?.features,
-        image: loc.coverPhoto || fallback?.image,
+        name:
+          loc.restaurantDisplayName ||
+          extraFields.restaurantName ||
+          "Restaurant",
+        address: loc.addressString ?? undefined,
+        neighborhood: undefined,
+        phone,
+        hours: undefined,
+        rating,
+        reviewCount,
+        features: methodFeatures,
+        image: loc.coverPhoto || FALLBACK_LOCATION_IMAGE,
         logo: loc.restaurantLogo,
-        bio: loc.restaurantBio ?? fallback?.bio,
-        isMainLocation: fallback?.isMainLocation,
+        bio: loc.restaurantBio ?? undefined,
+        isMainLocation: Boolean(extraFields.isMainLocation),
         orderingAvailable,
-        deliveryRadius: fallback?.deliveryRadius,
-        pickupAvailable: methods.pickup ?? fallback?.pickupAvailable,
+        deliveryRadius:
+          typeof extraFields.deliveryRadius === "string"
+            ? extraFields.deliveryRadius
+            : undefined,
+        pickupAvailable: methods.pickup ?? undefined,
         methodsStatus: methods,
       };
     });
-  }, [fallbackMap, merchantQuery.data]);
+  }, [merchantQuery.data]);
 
-  const usingApi = preferApi && merchantLocations.length > 0;
-  const displayLocations = usingApi ? merchantLocations : fallbackLocations;
+  const hasMerchantLocations = merchantLocations.length > 0;
+  const usingApi = preferApi && hasMerchantLocations;
   const loading =
-    preferApi && (locationQuery.isLoading || merchantQuery.isLoading);
+    (preferApi && (locationQuery.isLoading || merchantQuery.isLoading)) ||
+    waitingForLocation;
+  const displayLocations = preferApi ? merchantLocations : [];
   const apiError = preferApi
     ? locationError ??
       (locationQuery.error ? toErrorMessage(locationQuery.error) : null) ??
@@ -214,19 +168,13 @@ export default function XichuanLocationsPage() {
   const averageRatingDisplay = averageRating.toFixed(1);
   const totalReviews = displayLocations.reduce(
     (sum, loc) => sum + (loc.reviewCount ?? 0),
-    0,
+    0
   );
 
   const handleOrderFromLocation = (locationId: string) => {
     // In a real app, this would set the selected location and redirect to menu
     console.log(`Starting order from location: ${locationId}`);
     window.location.href = "/";
-  };
-
-  const handleGetDirections = (address?: string) => {
-    if (!address) return;
-    const encodedAddress = encodeURIComponent(address);
-    window.open(`https://maps.google.com/maps?q=${encodedAddress}`, "_blank");
   };
 
   return (
@@ -320,11 +268,17 @@ export default function XichuanLocationsPage() {
 
             {/* Locations Grid */}
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 xl:grid-cols-3">
+              {displayLocations.length === 0 && (
+                <div className="col-span-full text-center text-muted-foreground py-16">
+                  Locations will appear here once they are available for this
+                  restaurant.
+                </div>
+              )}
               {displayLocations.map((location) => {
                 const ratingValue =
                   typeof location.rating === "number"
                     ? location.rating.toFixed(1)
-                    : averageRatingDisplay;
+                    : undefined;
                 const reviewValue =
                   typeof location.reviewCount === "number"
                     ? location.reviewCount
@@ -345,13 +299,15 @@ export default function XichuanLocationsPage() {
                 return (
                   <Card
                     key={location.id}
-                    className="overflow-hidden transition-shadow hover:shadow-lg"
+                    className="overflow-hidden transition-shadow hover:shadow-lg flex flex-col gap-0 pt-0"
                   >
-                    <div className="relative h-48 overflow-hidden">
-                      <img
+                    <div className="relative h-64 overflow-hidden rounded-t-xl">
+                      <Image
                         src={location.image ?? FALLBACK_LOCATION_IMAGE}
                         alt={location.name}
-                        className="h-full w-full object-cover"
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                       />
                       {location.isMainLocation && (
                         <Badge
@@ -363,22 +319,22 @@ export default function XichuanLocationsPage() {
                           Original Location
                         </Badge>
                       )}
-                      {(usingApi || ratings.length > 0) && (
+                      {(usingApi || ratingValue) && (
                         <div className="absolute top-3 right-3 flex items-center gap-1 rounded bg-black/70 px-2 py-1 text-sm text-white backdrop-blur-sm dark:bg-white/20 dark:text-foreground">
                           <ClientIcon
                             name="Star"
                             className="h-3 w-3 fill-yellow-400 text-yellow-400"
                           />
-                          {ratingValue}
+                          {ratingValue ?? averageRatingDisplay}
                           {reviewValue ? ` (${reviewValue})` : ""}
                         </div>
                       )}
                     </div>
 
-                    <CardHeader className="pb-3">
+                    <CardHeader className="p-3">
                       <CardTitle className="flex items-start justify-between">
                         <div>
-                          <h3 className="text-lg font-semibold text-foreground">
+                          <h3 className="text-2xl font-bold text-foreground">
                             {location.name}
                           </h3>
                           {location.neighborhood && (
@@ -395,33 +351,33 @@ export default function XichuanLocationsPage() {
                       )}
                     </CardHeader>
 
-                    <CardContent className="space-y-4">
-                      <div className="flex items-start gap-3">
+                    <CardContent className="space-y-4 px-3">
+                      <div className="flex items-start gap-2">
                         <ClientIcon
                           name="MapPin"
-                          className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground"
+                          className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
                         />
-                        <div className="text-sm text-foreground">
-                          {location.address ?? "Address coming soon"}
-                        </div>
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 text-xs"
-                          style={{ color: "hsl(var(--brand-accent))" }}
-                          onClick={() => handleGetDirections(location.address)}
-                          disabled={!location.address}
-                        >
-                          Get Directions
-                          <ClientIcon name="Navigation" className="ml-1 h-3 w-3" />
-                        </Button>
+                        {location.address ? (
+                          <a
+                            href={getMapsUrl(location.address)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-left text-sm text-foreground transition-colors hover:text-primary hover:underline"
+                          >
+                            {location.address}
+                          </a>
+                        ) : (
+                          <div className="text-sm text-foreground">
+                            Address coming soon
+                          </div>
+                        )}
                       </div>
 
                       {location.phone && (
                         <div className="flex items-center gap-3">
                           <ClientIcon
                             name="Phone"
-                            className="h-4 w-4 flex-shrink-0 text-muted-foreground"
+                            className="h-4 w-4 shrink-0 text-muted-foreground"
                           />
                           <a
                             href={`tel:${location.phone}`}
@@ -436,7 +392,7 @@ export default function XichuanLocationsPage() {
                         <div className="flex items-start gap-3">
                           <ClientIcon
                             name="Clock"
-                            className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground"
+                            className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
                           />
                           <div className="space-y-1 text-sm text-foreground">
                             {location.hours.weekdays && (
@@ -458,7 +414,7 @@ export default function XichuanLocationsPage() {
                             <Badge
                               key={feature}
                               variant="secondary"
-                              className="flex-shrink-0 whitespace-nowrap text-xs"
+                              className="shrink-0 whitespace-nowrap text-xs"
                             >
                               {feature}
                             </Badge>
@@ -494,21 +450,40 @@ export default function XichuanLocationsPage() {
                       <div className="flex gap-2 pt-2">
                         <Button
                           className="flex-1 text-white hover:opacity-90"
-                          style={{ backgroundColor: "hsl(var(--brand-accent))" }}
+                          style={{
+                            backgroundColor: "hsl(var(--brand-accent))",
+                          }}
                           onClick={() => handleOrderFromLocation(location.id)}
                           disabled={location.orderingAvailable === false}
                         >
                           Order Now
-                          <ClientIcon name="ChevronRight" className="ml-1 h-4 w-4" />
+                          <ClientIcon
+                            name="ChevronRight"
+                            className="ml-1 h-4 w-4"
+                          />
                         </Button>
                         <Button
                           variant="outline"
                           size="icon"
                           className="hover:bg-accent hover:text-accent-foreground"
-                          onClick={() => handleGetDirections(location.address)}
                           disabled={!location.address}
+                          asChild={Boolean(location.address)}
                         >
-                          <ClientIcon name="Navigation" className="h-4 w-4" />
+                          {location.address ? (
+                            <a
+                              href={getMapsUrl(location.address)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label="Get directions"
+                            >
+                              <ClientIcon
+                                name="Navigation"
+                                className="h-4 w-4"
+                              />
+                            </a>
+                          ) : (
+                            <ClientIcon name="Navigation" className="h-4 w-4" />
+                          )}
                         </Button>
                       </div>
                     </CardContent>
@@ -525,9 +500,9 @@ export default function XichuanLocationsPage() {
                     Want Xichuan Noodles in Your Neighborhood?
                   </h3>
                   <p className="text-muted-foreground mb-6">
-                    We&apos;re expanding across NYC! Contact us if you&apos;d like
-                    to see a Xichuan Noodles location near you or inquire about
-                    catering services for your event.
+                    We&apos;re expanding across NYC! Contact us if you&apos;d
+                    like to see a Xichuan Noodles location near you or inquire
+                    about catering services for your event.
                   </p>
                   <div className="flex gap-4 justify-center">
                     <Button variant="outline">Contact Us</Button>

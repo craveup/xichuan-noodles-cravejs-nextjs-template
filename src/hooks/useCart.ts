@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useApiResource } from "@/hooks/useApiResource";
 import type { StorefrontCart } from "@/lib/api/types";
-import { fetchCart } from "@/lib/api/client";
 import {
-  getStoredCartId,
-  setStoredCartId,
-} from "@/lib/cart-storage";
-import { toErrorMessage } from "@/lib/api/error-utils";
+  location_Id as DEFAULT_LOCATION_ID,
+  DEFAULT_FULFILLMENT_METHOD,
+} from "@/constants";
+import { useCartStore } from "@/store/cart-store";
+import { getCartId } from "@/lib/local-storage";
 
 type UseCartOptions = {
   locationId?: string;
@@ -14,144 +16,60 @@ type UseCartOptions = {
   shouldFetch?: boolean;
 };
 
-type MutateInput =
-  | StorefrontCart
-  | null
-  | undefined
-  | ((
-      current: StorefrontCart | undefined
-    ) => StorefrontCart | null | undefined)
-  | Promise<StorefrontCart | null | undefined>;
-
 export function useCart(options: UseCartOptions = {}) {
-  const queryClient = useQueryClient();
-
-  const locationId = options.locationId?.trim() ?? "";
-
-  const [isHydrated, setIsHydrated] = useState(false);
+  const defaultLocationId = DEFAULT_LOCATION_ID;
+  const locationId = options.locationId ?? defaultLocationId;
+  const { cartId: storeCartId, setCartIdState } = useCartStore();
   const [resolvedCartId, setResolvedCartId] = useState<string | null>(
-    options.cartId ?? null
+    options.cartId ?? storeCartId ?? null,
   );
 
   useEffect(() => {
-    setIsHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isHydrated) return;
     if (!locationId) return;
 
     if (typeof options.cartId !== "undefined") {
-      setResolvedCartId(
-        options.cartId === null ? null : String(options.cartId)
-      );
+      const nextValue = options.cartId ?? null;
+      setResolvedCartId(nextValue);
+      if (nextValue && nextValue !== storeCartId) {
+        setCartIdState(nextValue);
+      }
       return;
     }
 
-    const stored = getStoredCartId(locationId);
-    if (stored) {
-      setResolvedCartId(stored);
+    if (storeCartId) {
+      setResolvedCartId(storeCartId);
+      return;
     }
-  }, [isHydrated, locationId, options.cartId]);
 
-  const activeCartId = useMemo(() => {
-    if (typeof options.cartId !== "undefined" && options.cartId !== null) {
-      return String(options.cartId);
+    const storedCartId =
+      getCartId(locationId, DEFAULT_FULFILLMENT_METHOD) || null;
+    if (storedCartId) {
+      setResolvedCartId(storedCartId);
+      setCartIdState(storedCartId);
     }
-    return resolvedCartId;
-  }, [options.cartId, resolvedCartId]);
+  }, [locationId, options.cartId, setCartIdState, storeCartId]);
 
   const shouldFetchBase = options.shouldFetch ?? true;
-  const shouldFetch = Boolean(
-    shouldFetchBase && locationId && activeCartId && isHydrated
-  );
+  const shouldFetch = Boolean(shouldFetchBase && locationId && resolvedCartId);
 
-  const queryKey = useMemo(
-    () => [
-      "cart",
-      locationId || "__no-location__",
-      activeCartId ?? "__no-cart__",
-    ],
-    [activeCartId, locationId]
-  );
+  const endpoint =
+    shouldFetch && locationId && resolvedCartId
+      ? `/api/v1/locations/${locationId}/carts/${resolvedCartId}`
+      : null;
 
-  const cartQuery = useQuery<StorefrontCart>({
-    queryKey,
-    queryFn: async () => {
-      if (!locationId || !activeCartId) {
-        throw new Error("Cart identifiers are not ready.");
-      }
-      const cart = await fetchCart(locationId, activeCartId);
-      return cart;
-    },
-    enabled: shouldFetch,
-    staleTime: 30_000,
-    gcTime: 10 * 60_000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-  });
-
-  useEffect(() => {
-    if (!isHydrated || !locationId) return;
-    const latestId = cartQuery.data?.id ?? activeCartId ?? null;
-    setStoredCartId(locationId, latestId);
-    if (latestId && latestId !== resolvedCartId) {
-      setResolvedCartId(latestId);
-    }
-  }, [
-    activeCartId,
-    cartQuery.data?.id,
-    isHydrated,
-    locationId,
-    resolvedCartId,
-  ]);
-
-  const mutate = useCallback(
-    async (updater?: MutateInput) => {
-      if (!locationId) return;
-
-      if (typeof updater === "undefined") {
-        await queryClient.invalidateQueries({ queryKey });
-        return;
-      }
-
-      const nextValue = await Promise.resolve(
-        typeof updater === "function"
-          ? (updater as (
-              current: StorefrontCart | undefined
-            ) => StorefrontCart | null | undefined)(cartQuery.data)
-          : updater
-      );
-
-      if (nextValue) {
-        queryClient.setQueryData(queryKey, nextValue);
-        if (nextValue.id && nextValue.id !== resolvedCartId) {
-          setResolvedCartId(nextValue.id);
-        }
-      } else {
-        queryClient.removeQueries({ queryKey });
-        setResolvedCartId(null);
-      }
-    },
-    [cartQuery.data, queryClient, queryKey, locationId, resolvedCartId]
-  );
-
-  const errorMessage = cartQuery.error
-    ? toErrorMessage(cartQuery.error)
-    : undefined;
-
-  const isLoading = shouldFetch ? cartQuery.isLoading : false;
+  const { data, error, errorMessage, isLoading, isValidating, mutate } =
+    useApiResource<StorefrontCart>(endpoint, { shouldFetch });
 
   return {
-    cart: cartQuery.data,
-    cartId: cartQuery.data?.id ?? activeCartId ?? null,
+    cart: data,
+    cartId: resolvedCartId,
     locationId,
-    error: cartQuery.error ?? null,
+    error,
     errorMessage,
     isLoading,
-    isValidating: cartQuery.isFetching,
+    isValidating,
     mutate,
     shouldFetch,
-    setCartIdState: setResolvedCartId,
+    setCartIdState,
   };
 }

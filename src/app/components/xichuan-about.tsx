@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 
 export function XichuanAbout() {
@@ -21,7 +22,7 @@ export function XichuanAbout() {
 
           {/* Main Story */}
           <div className="grid md:grid-cols-2 gap-12 items-center mb-16">
-            <div>
+            <div className="max-w-2xl mx-auto text-center md:text-left">
               <h3 className="text-2xl font-semibold mb-6">
                 The Art of Hand-Pulled Noodles
               </h3>
@@ -44,10 +45,13 @@ export function XichuanAbout() {
               </p>
             </div>
             <div className="relative">
-              <img
+              <Image
                 src="/images/xichuan-noodles/noodle_making.webp"
                 alt="Chef preparing hand-pulled noodles"
-                className="rounded-lg shadow-lg"
+                width={640}
+                height={480}
+                className="h-auto w-full rounded-lg object-cover shadow-lg"
+                priority
               />
             </div>
           </div>
