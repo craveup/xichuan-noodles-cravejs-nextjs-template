@@ -76,10 +76,10 @@ Then replace the placeholders with your credentials:
 
 | Command         | Description                          |
 | --------------- | ------------------------------------ |
-| `npm run dev`   | Start the local development server   |
-| `npm run build` | Create an optimized production build |
-| `npm run start` | Serve the production build locally   |
-| `npm run lint`  | Run ESLint using the Next.js config  |
+| `pnpm dev`   | Start the local development server   |
+| `pnpm build` | Create an optimized production build |
+| `pnpm start` | Serve the production build locally   |
+| `pnpm lint`  | Run ESLint using the Next.js config  |
 
 ## Project Structure
 
