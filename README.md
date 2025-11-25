@@ -33,9 +33,9 @@ Capture the following states and drop the assets into `public/screenshots/`:
 | ---------------------------------------------- | -------------------------------------------------------- |
 | ![Menu Grid](public/screenshots/menu-grid.png) | ![Product Drawer](public/screenshots/product-drawer.png) |
 
-| Cart & Recommendations                               | Menu Scroll GIF                                        | Theme Toggle GIF                                         |
-| ---------------------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------- |
-| ![Cart Sidebar](public/screenshots/cart-sidebar.png) | ![Menu Scroll GIF](public/screenshots/menu-scroll.gif) | ![Theme Toggle GIF](public/screenshots/theme-toggle.gif) |
+| Cart & Recommendations                               | Menu Scroll GIF                                        |
+| ---------------------------------------------------- | ------------------------------------------------------ |
+| ![Cart Sidebar](public/screenshots/cart-sidebar.png) | ![Menu Scroll GIF](public/screenshots/menu-scroll.gif) |
 
 ## Getting Started
 
