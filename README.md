@@ -2,6 +2,8 @@
 
 A production-ready Crave.js storefront tailored for Xichuan noodle houses. Built on Next.js 15, it delivers branded menu browsing, cart management, and theme customization while staying lean enough for instant Vercel deployments.
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/craveup/xichuan-noodles-cravejs-nextjs-template&project-name=xichuan-noodles-storefront&env=NEXT_PUBLIC_CRAVEUP_API_KEY,NEXT_PUBLIC_LOCATION_ID,NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,NEXT_PUBLIC_ORG_SLUG)
+
 ## Tech Stack
 
 - [Next.js 15 (App Router)](https://nextjs.org/)
@@ -22,6 +24,8 @@ A production-ready Crave.js storefront tailored for Xichuan noodle houses. Built
 - Zero-config Vercel deployment plus `.env.example` for easy onboarding
 
 ## Demo
+
+- Live storefront: [https://xichuan-noodles.order.page/](https://xichuan-noodles.order.page/)
 
 Capture the following states and drop the assets into `public/screenshots/`:
 
